@@ -37,3 +37,28 @@ class CategoryDetailView(APIView):
             "category": category.title,
             "documents": result
         })
+
+
+class SearchView(APIView):
+    def get(self, request):
+        query = request.GET.get("q", "")
+        if not query:
+            return Response([])
+
+        documents = Document.objects.filter(title__icontains=query)[:10]
+
+        result = []
+        for d in documents:
+            version = (
+                DocumentVersion.objects
+                .filter(document=d)
+                .order_by("-created_at")
+                .first()
+            )
+            if version:
+                result.append({
+                    "title": d.title,
+                    "file_path": version.file.name
+                })
+
+        return Response(result)

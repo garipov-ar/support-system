@@ -1,6 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
+from apps.bot.bot import search_handler
+
 
 from apps.bot.bot import (
     start,
@@ -20,6 +22,7 @@ class Command(BaseCommand):
         app.add_handler(CallbackQueryHandler(category_handler, pattern="^cat:"))
         app.add_handler(CallbackQueryHandler(document_handler, pattern="^doc:"))
         app.add_handler(CallbackQueryHandler(back_handler, pattern="^back$"))
+        app.add_handler(CommandHandler("search", search_handler))
 
         print("🤖 Telegram bot started")
         app.run_polling()
