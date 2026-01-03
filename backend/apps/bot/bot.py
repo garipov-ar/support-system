@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-import requests
+import httpx
 import os
 from asgiref.sync import sync_to_async
 from apps.bot.models import BotUser
@@ -10,8 +10,9 @@ MEDIA_ROOT = "/app/media"
 
 
 async def build_root_keyboard():
-    r = requests.get(f"{API_BASE}/navigation/")
-    data = r.json()
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{API_BASE}/navigation/")
+        data = r.json()
 
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(c["title"], callback_data=f"cat:{c['id']}")]
@@ -50,8 +51,9 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     category_id = query.data.split(":")[1]
 
-    r = requests.get(f"{API_BASE}/category/{category_id}/")
-    data = r.json()
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{API_BASE}/category/{category_id}/")
+        data = r.json()
 
     keyboard = []
 
@@ -97,32 +99,84 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc_id = query.data.split(":")[1]
     
     # Fetch document details
-    r = requests.get(f"{API_BASE}/document/{doc_id}/")
-    doc_data = r.json()
+    # Fetch document details
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{API_BASE}/document/{doc_id}/")
+        doc_data = r.json()
     
     file_path = doc_data["file_path"]
     description = doc_data["description"]
     title = doc_data["title"]
-    
-    print(f"DEBUG: Processing doc {doc_id}")
-    print(f"DEBUG: Description: '{description}'")
-    print(f"DEBUG: Title: '{title}'")
-    
-    caption_text = description if description else title
-    print(f"DEBUG: Final caption: '{caption_text}'")
+    category_id = doc_data["category_id"]
 
+    # 1. Отправляем файл
     if file_path:
         full_path = os.path.join(MEDIA_ROOT, file_path)
+        ext = os.path.splitext(full_path)[1].lower()
 
         with open(full_path, "rb") as f:
-            await query.message.reply_document(
-                document=f,
-                filename=os.path.basename(full_path),
-                caption=description if description else title,
-                parse_mode="HTML"
-            )
+            if ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
+                await query.message.reply_photo(
+                    photo=f,
+                    caption=description if description else title,
+                    parse_mode="HTML"
+                )
+            else:
+                await query.message.reply_document(
+                    document=f,
+                    filename=os.path.basename(full_path),
+                    caption=description if description else title,
+                    parse_mode="HTML"
+                )
     else:
         await query.message.reply_text("Файл не найден.")
+
+    # 2. Восстанавливаем меню (чтобы оно было снизу)
+    # Удаляем старое меню (опционально, чтобы не засорять чат)
+    try:
+        await query.message.delete()
+    except Exception:
+        pass # Если не удалось удалить, не страшно
+
+    # Получаем данные категории заново
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{API_BASE}/category/{category_id}/")
+        cat_data = r.json()
+
+    keyboard = []
+    # Subcategories
+    for sub in cat_data.get("subcategories", []):
+         keyboard.append(
+            [InlineKeyboardButton(
+                f"📂 {sub['title']}",
+                callback_data=f"cat:{sub['id']}"
+            )]
+        )
+
+    # Documents
+    for doc in cat_data["documents"]:
+        keyboard.append(
+            [InlineKeyboardButton(
+                f"📄 {doc['title']}",
+                callback_data=f"doc:{doc['id']}"
+            )]
+        )
+
+    # Back button
+    parent_id = cat_data.get("parent_id")
+    if parent_id:
+        back_callback = f"cat:{parent_id}"
+    else:
+        back_callback = "back"
+
+    keyboard.append(
+        [InlineKeyboardButton("⬅ Назад", callback_data=back_callback)]
+    )
+
+    await query.message.reply_text(
+        text=f"📂 {cat_data['category']}",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -145,8 +199,9 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     query = " ".join(context.args)
-    r = requests.get(f"{API_BASE}/search/", params={"q": query})
-    data = r.json()
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{API_BASE}/search/", params={"q": query})
+        data = r.json()
 
     if not data:
         await update.message.reply_text("Ничего не найдено")

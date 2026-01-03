@@ -61,6 +61,7 @@ class DocumentDetailView(APIView):
             "id": document.id,
             "title": document.title,
             "description": document.description,
+            "category_id": document.category.id,
             "file_path": version.file.name if version else None
         })
 

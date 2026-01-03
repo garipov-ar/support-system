@@ -28,7 +28,7 @@ class Document(models.Model):
 
     title = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT)
+    equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, null=True, blank=True)
 
     description = models.TextField(verbose_name="Описание", blank=True)
 
