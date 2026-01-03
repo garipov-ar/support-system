@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: support
       POSTGRES_USER: support
       POSTGRES_PASSWORD: support
+      PYTHONUNBUFFERED: 1
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -17,6 +18,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
+      - ./backend/media:/app/media
     ports:
       - "8000:8000"
     depends_on:
@@ -29,6 +31,10 @@ services:
     command: python manage.py runbot
     depends_on:
       - web
+    volumes:
+      - ./backend/media:/app/media
+    environment:
+      PYTHONUNBUFFERED: 1
     env_file:
       - .env
 

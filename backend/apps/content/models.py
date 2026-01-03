@@ -24,16 +24,13 @@ class Category(models.Model):
 
 
 class Document(models.Model):
-    class DocType(models.TextChoices):
-        INSTRUCTION = "instruction", "Инструкция"
-        FIRMWARE = "firmware", "Прошивка"
-        CONFIG = "config", "Конфигурация"
-        PRICE = "price", "Прайс-лист"
+
 
     title = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT)
-    doc_type = models.CharField(max_length=20, choices=DocType.choices)
+
+    description = models.TextField(verbose_name="Описание", blank=True)
 
 class DocumentVersion(models.Model):
     document = models.ForeignKey(

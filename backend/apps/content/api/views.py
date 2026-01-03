@@ -33,9 +33,35 @@ class CategoryDetailView(APIView):
                 "file_path": version.file.name if version else None
             })
 
+        subcategories = Category.objects.filter(parent=category, visible_in_bot=True).order_by("order")
+        
         return Response({
+            "id": category.id,
             "category": category.title,
+            "parent_id": category.parent.id if category.parent else None,
+            "subcategories": [
+                {"id": s.id, "title": s.title} for s in subcategories
+            ],
             "documents": result
+        })
+
+
+class DocumentDetailView(APIView):
+    def get(self, request, document_id):
+        document = get_object_or_404(Document, id=document_id)
+        
+        version = (
+            DocumentVersion.objects
+            .filter(document=document)
+            .order_by("-created_at")
+            .first()
+        )
+        
+        return Response({
+            "id": document.id,
+            "title": document.title,
+            "description": document.description,
+            "file_path": version.file.name if version else None
         })
 
 

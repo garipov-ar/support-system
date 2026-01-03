@@ -24,8 +24,8 @@ class DocumentVersionInline(admin.TabularInline):
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ("title", "doc_type", "equipment", "category")
-    list_filter = ("doc_type", "equipment")
+    list_display = ("title", "equipment", "category")
+    list_filter = ("equipment",)
     search_fields = ("title",)
     inlines = [DocumentVersionInline]
 
