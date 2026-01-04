@@ -20,6 +20,7 @@ class CategoryAdmin(admin.ModelAdmin):
 class DocumentVersionInline(admin.TabularInline):
     model = DocumentVersion
     extra = 1
+    exclude = ("author",)  # Скрываем поле из формы, так как оно заполняется авто
 
 
 @admin.register(Document)
@@ -28,6 +29,20 @@ class DocumentAdmin(admin.ModelAdmin):
     list_filter = ("equipment",)
     search_fields = ("title",)
     inlines = [DocumentVersionInline]
+
+    def save_formset(self, request, form, formset, change):
+        """
+        Переопределяем сохранение inline-форм (версий документов),
+        чтобы автоматически проставить автора текущим пользователем.
+        """
+        instances = formset.save(commit=False)
+        for instance in instances:
+            if isinstance(instance, DocumentVersion):
+                # Если автор не указан (новая запись), ставим текущего юзера
+                if not instance.author:
+                    instance.author = request.user.username or "Admin"
+            instance.save()
+        formset.save_m2m()
 
 
 @admin.register(DocumentVersion)

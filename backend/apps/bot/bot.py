@@ -20,30 +20,120 @@ async def build_root_keyboard():
     ])
 
 
+from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+
+ASK_NAME, ASK_EMAIL, ASK_CONSENT = range(3)
+
 @sync_to_async
-def save_bot_user(user):
+def get_bot_user(telegram_id):
+    try:
+        return BotUser.objects.get(telegram_id=telegram_id)
+    except BotUser.DoesNotExist:
+        return None
+
+@sync_to_async
+def create_initial_user(user):
     BotUser.objects.get_or_create(
         telegram_id=user.id,
         defaults={
             "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
         }
     )
+
+@sync_to_async
+def update_user_name(telegram_id, full_name):
+    # Пытаемся разбить на имя/фамилию, если возможно
+    parts = full_name.split(" ", 1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else ""
+    
+    BotUser.objects.filter(telegram_id=telegram_id).update(
+        first_name=first_name,
+        last_name=last_name
+    )
+
+@sync_to_async
+def update_user_email(telegram_id, email):
+    BotUser.objects.filter(telegram_id=telegram_id).update(email=email)
+
+@sync_to_async
+def update_user_agreement(telegram_id):
+    BotUser.objects.filter(telegram_id=telegram_id).update(agreed_to_policy=True)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    
+    # 1. Создаем запись если нет (чтобы не было ошибок), но не сохраняем имя из телеграма
+    await create_initial_user(user)
 
-    # безопасный вызов ORM
-    await save_bot_user(user)
+    db_user = await get_bot_user(user.id)
+    
+    # Если уже согласился - сразу меню
+    if db_user.agreed_to_policy:
+        keyboard = await build_root_keyboard()
+        await update.message.reply_text("Выберите раздел:", reply_markup=keyboard)
+        return ConversationHandler.END
 
-    keyboard = await build_root_keyboard()
-
+    # Иначе начинаем регистрацию
     await update.message.reply_text(
-        "Выберите раздел:",
-        reply_markup=keyboard
+        "Добро пожаловать! Для начала работы нам нужно познакомиться.\n"
+        "Пожалуйста, введите ваше *Имя и Фамилию*:",
+        parse_mode="Markdown"
     )
+    return ASK_NAME
+
+
+async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name = update.message.text
+    if len(name) < 2:
+        await update.message.reply_text("Слишком короткое имя. Пожалуйста, введите *Имя и Фамилию*:", parse_mode="Markdown")
+        return ASK_NAME
+        
+    await update_user_name(update.effective_user.id, name)
+    
+    await update.message.reply_text("Приятно познакомиться! Теперь введите ваш *Email*:", parse_mode="Markdown")
+    return ASK_EMAIL
+
+
+async def receive_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    email = update.message.text
+    if "@" not in email:
+        await update.message.reply_text("Некорректный email. Попробуйте еще раз:")
+        return ASK_EMAIL
+        
+    await update_user_email(update.effective_user.id, email)
+    
+    # Показываем соглашение
+    keyboard = [
+        [InlineKeyboardButton("✅ Согласен на обработку данных", callback_data="agree_policy")]
+    ]
+    await update.message.reply_text(
+        "Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных.",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return ASK_CONSENT
+
+
+async def agreement_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "agree_policy":
+        await update_user_agreement(query.from_user.id)
+        
+        keyboard = await build_root_keyboard()
+        
+        await query.edit_message_text(
+            text="Спасибо! Вы успешно зарегистрированы.\nВыберите раздел:",
+            reply_markup=keyboard
+        )
+        return ConversationHandler.END
+    return ASK_CONSENT # Should not happen usually
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Регистрация прервана. Напишите /start чтобы начать заново.")
+    return ConversationHandler.END
 
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

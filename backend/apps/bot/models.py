@@ -7,6 +7,8 @@ class BotUser(models.Model):
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    agreed_to_policy = models.BooleanField(default=False)
+    email = models.EmailField(blank=True, null=True)
 
     def __str__(self):
         return str(self.telegram_id)
