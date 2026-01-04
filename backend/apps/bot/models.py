@@ -9,6 +9,12 @@ class BotUser(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     agreed_to_policy = models.BooleanField(default=False)
     email = models.EmailField(blank=True, null=True)
+    subscribed_categories = models.ManyToManyField(
+        "content.Category",
+        related_name="subscribers",
+        blank=True,
+        verbose_name="Подписки на категории"
+    )
 
     def __str__(self):
         return str(self.telegram_id)

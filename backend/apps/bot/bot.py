@@ -1,7 +1,14 @@
+import os
+import logging
+import httpx
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import httpx
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 from asgiref.sync import sync_to_async
 from apps.bot.models import BotUser
 
@@ -14,10 +21,12 @@ async def build_root_keyboard():
         r = await client.get(f"{API_BASE}/navigation/")
         data = r.json()
 
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(c["title"], callback_data=f"cat:{c['id']}")]
+    keyboard = [
+        [InlineKeyboardButton(f"🗂 {c['title']}", callback_data=f"cat:{c['id']}")]
         for c in data
-    ])
+    ]
+    keyboard.append([InlineKeyboardButton("🔍 Поиск", callback_data="search_init")])
+    return InlineKeyboardMarkup(keyboard)
 
 
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters, CallbackQueryHandler
@@ -60,8 +69,41 @@ def update_user_email(telegram_id, email):
 def update_user_agreement(telegram_id):
     BotUser.objects.filter(telegram_id=telegram_id).update(agreed_to_policy=True)
 
+@sync_to_async
+def is_user_subscribed(telegram_id, category_id):
+    from apps.content.models import Category
+    user = BotUser.objects.filter(telegram_id=telegram_id).prefetch_related('subscribed_categories').first()
+    if user:
+        # Check direct subscription
+        if user.subscribed_categories.filter(id=category_id).exists():
+            return True, "direct"
+        
+        # Check inherited subscription (from parents)
+        try:
+            category = Category.objects.get(id=category_id)
+            ancestors = category.get_ancestors()
+            if user.subscribed_categories.filter(id__in=ancestors).exists():
+                return True, "inherited"
+        except Category.DoesNotExist:
+            pass
+            
+    return False, None
+
+@sync_to_async
+def toggle_subscription(telegram_id, category_id):
+    from apps.content.models import Category
+    user = BotUser.objects.get(telegram_id=telegram_id)
+    category = Category.objects.get(id=category_id)
+    if user.subscribed_categories.filter(id=category_id).exists():
+        user.subscribed_categories.remove(category)
+        return False
+    else:
+        user.subscribed_categories.add(category)
+        return True
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    start_time = time.time()
     user = update.effective_user
     
     # 1. Создаем запись если нет (чтобы не было ошибок), но не сохраняем имя из телеграма
@@ -69,10 +111,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db_user = await get_bot_user(user.id)
     
+    from apps.analytics.utils import log_interaction
+    
     # Если уже согласился - сразу меню
     if db_user.agreed_to_policy:
         keyboard = await build_root_keyboard()
         await update.message.reply_text("Выберите раздел:", reply_markup=keyboard)
+        
+        duration = int((time.time() - start_time) * 1000)
+        await log_interaction(user.id, "command", "/start", duration=duration)
         return ConversationHandler.END
 
     # Иначе начинаем регистрацию
@@ -81,6 +128,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Пожалуйста, введите ваше *Имя и Фамилию*:",
         parse_mode="Markdown"
     )
+    
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(user.id, "command", "/start_reg", duration=duration)
     return ASK_NAME
 
 
@@ -135,16 +185,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Регистрация прервана. Напишите /start чтобы начать заново.")
     return ConversationHandler.END
 
-async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+import html
 
-    category_id = query.data.split(":")[1]
-
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{API_BASE}/category/{category_id}/")
-        data = r.json()
-
+async def get_category_menu_content(data, user_id, prefix=""):
+    category_id = data["id"]
     keyboard = []
 
     # Subcategories
@@ -165,6 +209,24 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )]
         )
 
+    # Subscription button
+    is_subbed, sub_type = await is_user_subscribed(user_id, category_id)
+    
+    if sub_type == "inherited":
+        sub_text = "🔕"
+    else:
+        sub_text = "🔕" if is_subbed else "🔔"
+    
+    keyboard.append(
+        [InlineKeyboardButton(sub_text, callback_data=f"sub:toggle:{category_id}")]
+    )
+
+    # Search button
+    keyboard.append(
+        [InlineKeyboardButton("🔍 Поиск по разделу", callback_data="search_init")]
+    )
+
+
     # Back button
     parent_id = data.get("parent_id")
     if parent_id:
@@ -176,19 +238,83 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⬅ Назад", callback_data=back_callback)]
     )
 
+    # Clearer status indicator
+    status_icon = "🗂" if parent_id is None else "📂"
+
+    # Breadcrumbs
+    path_list = data.get("path", [])
+    breadcrumbs = ""
+    if path_list:
+        breadcrumbs = " > ".join(path_list) + " > "
+    
+    # Escape for HTML
+    safe_title = html.escape(str(data['category']))
+    safe_breadcrumbs = html.escape(breadcrumbs)
+
+    # prefix is assumed to be HTML if it has tags, but for now we keep it simple
+    text = f"{prefix}{status_icon} {safe_breadcrumbs}<u>{safe_title}</u>"
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    return text, reply_markup
+
+
+async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, category_id=None, answer=True, prefix=""):
+    start_time = time.time()
+    query = update.callback_query
+    if query and answer:
+        await query.answer()
+
+    if category_id is None:
+        # data format: "cat:<id>" or "sub:toggle:<id>"
+        parts = query.data.split(":")
+        category_id = parts[-1]
+    
+    # Ensure category_id is a string and not empty/invalid
+    category_id = str(category_id)
+    if not category_id or not category_id.isdigit():
+        logger.error(f"Invalid category_id: '{category_id}' from query data: '{query.data if query else 'N/A'}'")
+        if query:
+            await query.edit_message_text("Ошибка: неверный ID категории.")
+        return
+
+    url = f"{API_BASE}/category/{category_id}/"
+    logger.info(f"Requesting category data: {url}")
+
+    async with httpx.AsyncClient() as client:
+        try:
+            r = await client.get(url)
+            if r.status_code != 200:
+                logger.error(f"API Error {r.status_code} for {url}: {r.text}")
+                if query:
+                    await query.edit_message_text("Ошибка загрузки категории (API).")
+                return
+            data = r.json()
+        except Exception as e:
+            logger.error(f"Request/JSON Error for {url}: {e}")
+            if query:
+                await query.edit_message_text("Произошла системная ошибка при загрузке данных.")
+            return
+
+    text, reply_markup = await get_category_menu_content(data, query.from_user.id, prefix=prefix)
+
     await query.edit_message_text(
-        text=f"📂 {data['category']}",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup
     )
+    
+    from apps.analytics.utils import log_interaction
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(query.from_user.id, "callback", f"cat:{category_id}", duration=duration)
 
 
 async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    start_time = time.time()
     query = update.callback_query
     await query.answer()
 
     doc_id = query.data.split(":")[1]
     
-    # Fetch document details
     # Fetch document details
     async with httpx.AsyncClient() as client:
         r = await client.get(f"{API_BASE}/document/{doc_id}/")
@@ -222,7 +348,6 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Файл не найден.")
 
     # 2. Восстанавливаем меню (чтобы оно было снизу)
-    # Удаляем старое меню (опционально, чтобы не засорять чат)
     try:
         await query.message.delete()
     except Exception:
@@ -233,40 +358,17 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = await client.get(f"{API_BASE}/category/{category_id}/")
         cat_data = r.json()
 
-    keyboard = []
-    # Subcategories
-    for sub in cat_data.get("subcategories", []):
-         keyboard.append(
-            [InlineKeyboardButton(
-                f"📂 {sub['title']}",
-                callback_data=f"cat:{sub['id']}"
-            )]
-        )
-
-    # Documents
-    for doc in cat_data["documents"]:
-        keyboard.append(
-            [InlineKeyboardButton(
-                f"📄 {doc['title']}",
-                callback_data=f"doc:{doc['id']}"
-            )]
-        )
-
-    # Back button
-    parent_id = cat_data.get("parent_id")
-    if parent_id:
-        back_callback = f"cat:{parent_id}"
-    else:
-        back_callback = "back"
-
-    keyboard.append(
-        [InlineKeyboardButton("⬅ Назад", callback_data=back_callback)]
-    )
+    text, reply_markup = await get_category_menu_content(cat_data, query.from_user.id)
 
     await query.message.reply_text(
-        text=f"📂 {cat_data['category']}",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup
     )
+    
+    from apps.analytics.utils import log_interaction
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(query.from_user.id, "callback", f"doc:{doc_id}", duration=duration)
 
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,26 +386,141 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    start_time = time.time()
     if not context.args:
         await update.message.reply_text("Использование: /search <текст>")
         return
 
-    query = " ".join(context.args)
+    query_text = " ".join(context.args)
     async with httpx.AsyncClient() as client:
-        r = await client.get(f"{API_BASE}/search/", params={"q": query})
-        data = r.json()
+        try:
+            r = await client.get(f"{API_BASE}/search/", params={"q": query_text})
+            data = r.json()
+        except Exception as e:
+            logger.error(f"Search API error: {e}")
+            await update.message.reply_text("Произошла ошибка при поиске.")
+            return
 
+    from apps.analytics.utils import log_search_query, log_interaction
+    
     if not data:
-        await update.message.reply_text("Ничего не найдено")
+        await update.message.reply_text(f"По запросу \"{query_text}\" ничего не найдено.")
+        await log_search_query(update.effective_user.id, query_text, 0)
+        duration = int((time.time() - start_time) * 1000)
+        await log_interaction(update.effective_user.id, "command", "/search", duration=duration)
         return
 
+    keyboard = []
     for item in data:
-        file_path = item["file_path"]
-        full_path = os.path.join(MEDIA_ROOT, file_path)
+        keyboard.append([InlineKeyboardButton(f"📄 {item['title']}", callback_data=f"doc:{item['id']}")])
+    
+    # Back to root button
+    keyboard.append([InlineKeyboardButton("🔙 В главное меню", callback_data="back")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        f"🔍 Результаты поиска по запросу \"{query_text}\":",
+        reply_markup=reply_markup
+    )
+    
+    await log_search_query(update.effective_user.id, query_text, len(data))
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(update.effective_user.id, "command", "/search", duration=duration)
 
-        with open(full_path, "rb") as f:
-            await update.message.reply_document(
-                document=f,
-                filename=os.path.basename(full_path),
-                caption=item["title"]
-            )
+async def initiate_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for search button click - prompts user to enter search query"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Set a flag in context to indicate we're waiting for search input
+    context.user_data['awaiting_search'] = True
+    
+    await query.edit_message_text(
+        "🔍 Введите поисковый запрос:\n\n"
+        "Я найду документы по названию и описанию.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("❌ Отмена", callback_data="back")
+        ]])
+    )
+
+async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for text messages when user is in search mode"""
+    # Check if we're waiting for search input
+    if not context.user_data.get('awaiting_search'):
+        return  # Ignore text if not in search mode
+    
+    # Clear the flag
+    context.user_data['awaiting_search'] = False
+    
+    start_time = time.time()
+    query_text = update.message.text.strip()
+    
+    if not query_text:
+        await update.message.reply_text("Пожалуйста, введите непустой запрос.")
+        return
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            r = await client.get(f"{API_BASE}/search/", params={"q": query_text})
+            data = r.json()
+        except Exception as e:
+            logger.error(f"Search API error: {e}")
+            await update.message.reply_text("Произошла ошибка при поиске.")
+            return
+
+    from apps.analytics.utils import log_search_query, log_interaction
+    
+    if not data:
+        await update.message.reply_text(
+            f"По запросу \"{query_text}\" ничего не найдено.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 В главное меню", callback_data="back")
+            ]])
+        )
+        await log_search_query(update.effective_user.id, query_text, 0)
+        duration = int((time.time() - start_time) * 1000)
+        await log_interaction(update.effective_user.id, "text_search", query_text, duration=duration)
+        return
+
+    keyboard = []
+    for item in data:
+        keyboard.append([InlineKeyboardButton(f"📄 {item['title']}", callback_data=f"doc:{item['id']}")])
+    
+    keyboard.append([InlineKeyboardButton("🔙 В главное меню", callback_data="back")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        f"🔍 Результаты поиска по запросу \"{query_text}\":",
+        reply_markup=reply_markup
+    )
+    
+    await log_search_query(update.effective_user.id, query_text, len(data))
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(update.effective_user.id, "text_search", query_text, duration=duration)
+
+async def toggle_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    start_time = time.time()
+    query = update.callback_query
+
+    # sub:toggle:<id>
+    category_id = int(query.data.split(":")[2])
+    
+    is_subbed, sub_type = await is_user_subscribed(query.from_user.id, category_id)
+    
+    if sub_type == "inherited":
+        await query.answer("Вы подписаны через родительскую категорию. Чтобы отписаться, перейдите в родительский раздел.", show_alert=True)
+        return
+
+    is_now_subbed = await toggle_subscription(query.from_user.id, category_id)
+    
+    # Send a quick toast answer
+    await query.answer()
+
+    prefix = "✅ <b>Вы успешно подписались!</b>\n\n" if is_now_subbed else "❌ <b>Вы отписались от обновлений.</b>\n\n"
+    
+    # Refresh the category menu with the success message
+    await category_handler(update, context, category_id=category_id, answer=False, prefix=prefix)
+    
+    from apps.analytics.utils import log_interaction
+    duration = int((time.time() - start_time) * 1000)
+    await log_interaction(query.from_user.id, "callback", f"sub:toggle:{category_id}", duration=duration)

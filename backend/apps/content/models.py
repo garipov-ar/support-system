@@ -7,17 +7,20 @@ class Equipment(models.Model):
         return self.name
 
 
-class Category(models.Model):
+from mptt.models import MPTTModel, TreeForeignKey
+
+
+class Category(MPTTModel):
     title = models.CharField(max_length=255)
-    parent = models.ForeignKey(
+    parent = TreeForeignKey(
         "self", null=True, blank=True,
         related_name="children", on_delete=models.CASCADE
     )
     order = models.PositiveIntegerField(default=0)
     visible_in_bot = models.BooleanField(default=True)
 
-    class Meta:
-        ordering = ["order"]
+    class MPTTMeta:
+        order_insertion_by = ["order"]
 
     def __str__(self):
         return self.title

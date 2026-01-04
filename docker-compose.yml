@@ -32,6 +32,7 @@ services:
     depends_on:
       - web
     volumes:
+      - ./backend:/app
       - ./backend/media:/app/media
     environment:
       PYTHONUNBUFFERED: 1

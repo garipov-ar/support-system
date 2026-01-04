@@ -18,10 +18,13 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     "rest_framework",
-
+    "django_ckeditor_5",
+    "mptt",
+    
     "apps.users",
-    "apps.content",
+    "apps.content.apps.ContentConfig",
     "apps.bot",
+    'apps.analytics',
 ]
 
 # --- MIDDLEWARE (КРИТИЧНО ДЛЯ ADMIN) ---
@@ -90,6 +93,65 @@ USE_TZ = True
 STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# CKEditor 5
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'undo', 'redo'],
+    },
+    'extends': {
+        'blockToolbar': [
+            'paragraph', 'heading1', 'heading2', 'heading3',
+            '|',
+            'bulletedList', 'numberedList',
+            '|',
+            'blockQuote',
+        ],
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link', 'underline', 'strikethrough',
+        'subscript', 'superscript', 'highlight', '|', 'code', 'codeBlock', '|', 'bulletedList', 'numberedList', 'todoList',
+        '|',  'outdent', 'indent', '|', 'blockQuote', 'insertImage', '|',
+        'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', 'mediaEmbed', 'removeFormat',
+        'insertTable',],
+        'image': {
+            'toolbar': ['imageTextAlternative', '|', 'imageStyle:alignLeft',
+                'imageStyle:alignCenter', 'imageStyle:alignRight'],
+            'styles': [
+                'alignLeft',
+                'alignCenter',
+                'alignRight',
+            ]
+        },
+        'table': {
+            'contentToolbar': ['tableColumn', 'tableRow', 'mergeTableCells',
+            'tableProperties', 'tableCellProperties'],
+            'tableProperties': {
+                'borderColors': '...',
+                'backgroundColors': '...'
+            },
+            'tableCellProperties': {
+                'borderColors': '...',
+                'backgroundColors': '...'
+            }
+        },
+        'heading' : {
+            'options': [
+                { 'model': 'paragraph', 'title': 'Paragraph', 'class': 'ck-heading_paragraph' },
+                { 'model': 'heading1', 'view': 'h1', 'title': 'Heading 1', 'class': 'ck-heading_heading1' },
+                { 'model': 'heading2', 'view': 'h2', 'title': 'Heading 2', 'class': 'ck-heading_heading2' },
+                { 'model': 'heading3', 'view': 'h3', 'title': 'Heading 3', 'class': 'ck-heading_heading3' }
+            ]
+        }
+    },
+    'list': {
+        'properties': {
+            'styles': 'true',
+            'startIndex': 'true',
+            'reversed': 'true',
+        }
+    }
+}
+CKEDITOR_5_FILE_STORAGE = "django.core.files.storage.FileSystemStorage" # or any other storage
+
 STATIC_ROOT = BASE_DIR / "static"
 
 # --- DEFAULT PK ---

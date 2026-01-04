@@ -13,11 +13,16 @@ from apps.bot.bot import (
     receive_name,
     receive_email,
     cancel,
+    toggle_subscription_handler,
+    initiate_search_handler,
+    handle_search_query,
     ASK_NAME,
     ASK_EMAIL,
     ASK_CONSENT
 )
 
+
+from django.utils import autoreload
 
 class Command(BaseCommand):
     help = "Run Telegram bot"
@@ -31,9 +36,9 @@ class Command(BaseCommand):
             states={
                 ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)],
                 ASK_EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_email)],
-                ASK_CONSENT: [CallbackQueryHandler(agreement_handler, pattern="^agree_policy$")],
+                ASK_CONSENT: [CallbackQueryHandler(agreement_handler)],
             },
-            fallbacks=[CommandHandler("cancel", cancel)],
+            fallbacks=[CommandHandler("start", start)],
         )
 
         app.add_handler(conv_handler)
@@ -41,6 +46,9 @@ class Command(BaseCommand):
         app.add_handler(CallbackQueryHandler(category_handler, pattern="^cat:"))
         app.add_handler(CallbackQueryHandler(document_handler, pattern="^doc:"))
         app.add_handler(CallbackQueryHandler(back_handler, pattern="^back$"))
+        app.add_handler(CallbackQueryHandler(toggle_subscription_handler, pattern="^sub:toggle:"))
+        app.add_handler(CallbackQueryHandler(initiate_search_handler, pattern="^search_init$"))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_search_query))
         app.add_handler(CommandHandler("search", search_handler))
 
         print("🤖 Telegram bot started")

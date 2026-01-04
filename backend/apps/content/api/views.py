@@ -38,6 +38,7 @@ class CategoryDetailView(APIView):
         return Response({
             "id": category.id,
             "category": category.title,
+            "path": [c.title for c in category.get_ancestors()],
             "parent_id": category.parent.id if category.parent else None,
             "subcategories": [
                 {"id": s.id, "title": s.title} for s in subcategories
@@ -66,26 +67,23 @@ class DocumentDetailView(APIView):
         })
 
 
+from django.db.models import Q
+
 class SearchView(APIView):
     def get(self, request):
         query = request.GET.get("q", "")
         if not query:
             return Response([])
 
-        documents = Document.objects.filter(title__icontains=query)[:10]
+        documents = Document.objects.filter(
+            Q(title__icontains=query) | Q(description__icontains=query)
+        ).select_related('category')[:10]
 
-        result = []
-        for d in documents:
-            version = (
-                DocumentVersion.objects
-                .filter(document=d)
-                .order_by("-created_at")
-                .first()
-            )
-            if version:
-                result.append({
-                    "title": d.title,
-                    "file_path": version.file.name
-                })
-
-        return Response(result)
+        return Response([
+            {
+                "id": d.id,
+                "title": d.title,
+                "category_id": d.category.id
+            }
+            for d in documents
+        ])
