@@ -16,6 +16,8 @@ API_BASE = "http://web:8000/api"
 MEDIA_ROOT = "/app/media"
 
 
+from django.utils.translation import gettext as _
+
 async def build_root_keyboard():
     async with httpx.AsyncClient() as client:
         r = await client.get(f"{API_BASE}/navigation/")
@@ -25,7 +27,7 @@ async def build_root_keyboard():
         [InlineKeyboardButton(f"🗂 {c['title']}", callback_data=f"cat:{c['id']}")]
         for c in data
     ]
-    keyboard.append([InlineKeyboardButton("🔍 Поиск", callback_data="search_init")])
+    keyboard.append([InlineKeyboardButton(_("🔍 Поиск"), callback_data="search_init")])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -116,7 +118,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Если уже согласился - сразу меню
     if db_user.agreed_to_policy:
         keyboard = await build_root_keyboard()
-        await update.message.reply_text("Выберите раздел:", reply_markup=keyboard)
+        await update.message.reply_text(_("Выберите раздел:"), reply_markup=keyboard)
         
         duration = int((time.time() - start_time) * 1000)
         await log_interaction(user.id, "command", "/start", duration=duration)
@@ -124,8 +126,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Иначе начинаем регистрацию
     await update.message.reply_text(
-        "Добро пожаловать! Для начала работы нам нужно познакомиться.\n"
-        "Пожалуйста, введите ваше *Имя и Фамилию*:",
+        _("Добро пожаловать! Для начала работы нам нужно познакомиться.\n"
+        "Пожалуйста, введите ваше *Имя и Фамилию*:"),
         parse_mode="Markdown"
     )
     
@@ -137,29 +139,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.message.text
     if len(name) < 2:
-        await update.message.reply_text("Слишком короткое имя. Пожалуйста, введите *Имя и Фамилию*:", parse_mode="Markdown")
+        await update.message.reply_text(_("Слишком короткое имя. Пожалуйста, введите *Имя и Фамилию*:"), parse_mode="Markdown")
         return ASK_NAME
         
     await update_user_name(update.effective_user.id, name)
     
-    await update.message.reply_text("Приятно познакомиться! Теперь введите ваш *Email*:", parse_mode="Markdown")
+    await update.message.reply_text(_("Приятно познакомиться! Теперь введите ваш *Email*:"), parse_mode="Markdown")
     return ASK_EMAIL
 
 
 async def receive_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     email = update.message.text
     if "@" not in email:
-        await update.message.reply_text("Некорректный email. Попробуйте еще раз:")
+        await update.message.reply_text(_("Некорректный email. Попробуйте еще раз:"))
         return ASK_EMAIL
         
     await update_user_email(update.effective_user.id, email)
     
     # Показываем соглашение
     keyboard = [
-        [InlineKeyboardButton("✅ Согласен на обработку данных", callback_data="agree_policy")]
+        [InlineKeyboardButton(_("✅ Согласен на обработку данных"), callback_data="agree_policy")]
     ]
     await update.message.reply_text(
-        "Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных.",
+        _("Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных."),
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return ASK_CONSENT
@@ -175,14 +177,14 @@ async def agreement_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = await build_root_keyboard()
         
         await query.edit_message_text(
-            text="Спасибо! Вы успешно зарегистрированы.\nВыберите раздел:",
+            text=_("Спасибо! Вы успешно зарегистрированы.\nВыберите раздел:"),
             reply_markup=keyboard
         )
         return ConversationHandler.END
     return ASK_CONSENT # Should not happen usually
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Регистрация прервана. Напишите /start чтобы начать заново.")
+    await update.message.reply_text(_("Регистрация прервана. Напишите /start чтобы начать заново."))
     return ConversationHandler.END
 
 import html
@@ -223,7 +225,7 @@ async def get_category_menu_content(data, user_id, prefix=""):
 
     # Search button
     keyboard.append(
-        [InlineKeyboardButton("🔍 Поиск по разделу", callback_data="search_init")]
+        [InlineKeyboardButton(_("🔍 Поиск по разделу"), callback_data="search_init")]
     )
 
 
@@ -235,7 +237,7 @@ async def get_category_menu_content(data, user_id, prefix=""):
         back_callback = "back"
 
     keyboard.append(
-        [InlineKeyboardButton("⬅ Назад", callback_data=back_callback)]
+        [InlineKeyboardButton(_("⬅ Назад"), callback_data=back_callback)]
     )
 
     # Clearer status indicator
@@ -286,13 +288,13 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, c
             if r.status_code != 200:
                 logger.error(f"API Error {r.status_code} for {url}: {r.text}")
                 if query:
-                    await query.edit_message_text("Ошибка загрузки категории (API).")
+                    await query.edit_message_text(_("Ошибка загрузки категории (API)."))
                 return
             data = r.json()
         except Exception as e:
             logger.error(f"Request/JSON Error for {url}: {e}")
             if query:
-                await query.edit_message_text("Произошла системная ошибка при загрузке данных.")
+                await query.edit_message_text(_("Произошла системная ошибка при загрузке данных."))
             return
 
     text, reply_markup = await get_category_menu_content(data, query.from_user.id, prefix=prefix)
@@ -345,7 +347,7 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML"
                 )
     else:
-        await query.message.reply_text("Файл не найден.")
+        await query.message.reply_text(_("Файл не найден."))
 
     # 2. Восстанавливаем меню (чтобы оно было снизу)
     try:
@@ -404,7 +406,7 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from apps.analytics.utils import log_search_query, log_interaction
     
     if not data:
-        await update.message.reply_text(f"По запросу \"{query_text}\" ничего не найдено.")
+        await update.message.reply_text(_("По запросу \"{query}\" ничего не найдено.").format(query=query_text))
         await log_search_query(update.effective_user.id, query_text, 0)
         duration = int((time.time() - start_time) * 1000)
         await log_interaction(update.effective_user.id, "command", "/search", duration=duration)
@@ -415,7 +417,7 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton(f"📄 {item['title']}", callback_data=f"doc:{item['id']}")])
     
     # Back to root button
-    keyboard.append([InlineKeyboardButton("🔙 В главное меню", callback_data="back")])
+    keyboard.append([InlineKeyboardButton(_("🔙 В главное меню"), callback_data="back")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
@@ -436,10 +438,10 @@ async def initiate_search_handler(update: Update, context: ContextTypes.DEFAULT_
     context.user_data['awaiting_search'] = True
     
     await query.edit_message_text(
-        "🔍 Введите поисковый запрос:\n\n"
-        "Я найду документы по названию и описанию.",
+        _("🔍 Введите поисковый запрос:\n\n"
+        "Я найду документы по названию и описанию."),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("❌ Отмена", callback_data="back")
+            InlineKeyboardButton(_("❌ Отмена"), callback_data="back")
         ]])
     )
 
@@ -456,7 +458,7 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     query_text = update.message.text.strip()
     
     if not query_text:
-        await update.message.reply_text("Пожалуйста, введите непустой запрос.")
+        await update.message.reply_text(_("Пожалуйста, введите непустой запрос."))
         return
     
     async with httpx.AsyncClient() as client:
@@ -472,9 +474,9 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     if not data:
         await update.message.reply_text(
-            f"По запросу \"{query_text}\" ничего не найдено.",
+            _("По запросу \"{query}\" ничего не найдено.").format(query=query_text),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 В главное меню", callback_data="back")
+                InlineKeyboardButton(_("🔙 В главное меню"), callback_data="back")
             ]])
         )
         await log_search_query(update.effective_user.id, query_text, 0)
@@ -508,7 +510,7 @@ async def toggle_subscription_handler(update: Update, context: ContextTypes.DEFA
     is_subbed, sub_type = await is_user_subscribed(query.from_user.id, category_id)
     
     if sub_type == "inherited":
-        await query.answer("Вы подписаны через родительскую категорию. Чтобы отписаться, перейдите в родительский раздел.", show_alert=True)
+        await query.answer(_("Вы подписаны через родительскую категорию. Чтобы отписаться, перейдите в родительский раздел."), show_alert=True)
         return
 
     is_now_subbed = await toggle_subscription(query.from_user.id, category_id)
@@ -516,7 +518,10 @@ async def toggle_subscription_handler(update: Update, context: ContextTypes.DEFA
     # Send a quick toast answer
     await query.answer()
 
-    prefix = "✅ <b>Вы успешно подписались!</b>\n\n" if is_now_subbed else "❌ <b>Вы отписались от обновлений.</b>\n\n"
+    if is_now_subbed:
+        prefix = _("✅ <b>Вы успешно подписались!</b>\n\n")
+    else:
+        prefix = _("❌ <b>Вы отписались от обновлений.</b>\n\n")
     
     # Refresh the category menu with the success message
     await category_handler(update, context, category_id=category_id, answer=False, prefix=prefix)

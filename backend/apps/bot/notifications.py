@@ -31,21 +31,11 @@ async def broadcast_notification(document_version):
         f"Вы получили это сообщение, так как подписаны на этот раздел."
     )
     
-    # We use httpx directly to avoid heavy PTB dependencies in signals if possible,
-    # or we can use the Bot instance. Let's use httpx for simplicity and async.
-    token = settings.TELEGRAM_BOT_TOKEN
-    base_url = f"https://api.telegram.org/bot{token}/sendMessage"
-    
-    async with httpx.AsyncClient() as client:
-        for user in subscribers:
-            try:
-                await client.post(base_url, json={
-                    "chat_id": user.telegram_id,
-                    "text": message_text,
-                    "parse_mode": "Markdown"
-                })
-            except Exception as e:
-                logger.error(f"Failed to notify user {user.telegram_id}: {e}")
+    from apps.analytics.tasks import send_telegram_notification_task
+
+    for user in subscribers:
+        if user.telegram_id:
+            send_telegram_notification_task.delay(user.telegram_id, message_text, parse_mode="Markdown")
 
 @sync_to_async
 def get_admin_notification_settings():
@@ -97,9 +87,10 @@ async def notify_admins_unauthorized_access(username, ip_address, details=""):
         f"<b>Время:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
     )
     
+    from apps.analytics.tasks import send_telegram_notification_task
     for settings_obj in settings_list:
         if settings_obj.notify_on_unauthorized and settings_obj.telegram_id:
-            await send_telegram_notification(settings_obj.telegram_id, message)
+            send_telegram_notification_task.delay(settings_obj.telegram_id, message)
 
 async def notify_admins_bot_down(error_message=""):
     """Notify admins that the bot has stopped working"""
@@ -112,9 +103,10 @@ async def notify_admins_bot_down(error_message=""):
         f"<b>Время:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
     )
     
+    from apps.analytics.tasks import send_telegram_notification_task
     for settings_obj in settings_list:
         if settings_obj.notify_on_bot_down and settings_obj.telegram_id:
-            await send_telegram_notification(settings_obj.telegram_id, message)
+            send_telegram_notification_task.delay(settings_obj.telegram_id, message)
 
 async def notify_admins_document_error(document_title, error_details):
     """Notify admins about document processing errors"""

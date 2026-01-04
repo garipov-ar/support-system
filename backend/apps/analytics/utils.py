@@ -56,14 +56,19 @@ async def log_search_query(user_id, query_text, results_count):
         logger.error(f"Failed to log search: {e}")
 
 @sync_to_async
-def create_audit_log(user=None, bot_user=None, action_type=None, object_type="", object_id=None, details=None, ip_address=None):
-    """Creates an audit log entry. Can be called from sync or async contexts (via sync_to_async)."""
-    return AuditLog.objects.create(
-        user=user,
-        bot_user=bot_user,
-        action_type=action_type,
-        object_type=object_type,
-        object_id=object_id,
+def create_audit_log(user=None, bot_user=None, action_type=None, object_type="", object_id=None, details=None, ip_address=None, user_agent=None):
+    """
+    Helper function to create audit logs.
+    Now calls a Celery task to perform the database write in the background.
+    """
+    from apps.analytics.tasks import create_audit_log_task
+    user_id = user.id if user and hasattr(user, 'id') else None
+    
+    # We pass necessary data to the background task
+    create_audit_log_task.delay(
+        user_id=user_id,
+        action=action_type,
         details=details or {},
-        ip_address=ip_address
+        ip_address=ip_address,
+        user_agent=user_agent
     )

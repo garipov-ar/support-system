@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.utils import timezone
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, PicklePersistence
+from apps.bot.persistence import RedisPersistence
 from apps.bot.bot import search_handler
 from asgiref.sync import sync_to_async
 import asyncio
@@ -63,7 +64,10 @@ class Command(BaseCommand):
     help = "Run Telegram bot"
 
     def handle(self, *args, **options):
-        app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+        redis_url = getattr(settings, 'REDIS_URL', 'redis://redis:6379/1')
+        persistence = RedisPersistence(url=redis_url)
+
+        app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).persistence(persistence).build()
 
         # Registration Conversation
         conv_handler = ConversationHandler(
