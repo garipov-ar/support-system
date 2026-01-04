@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.db.models import Count, Avg
 from django.utils import timezone
 from datetime import timedelta
-from .models import BotInteraction, SearchQueryLog
+from .models import BotInteraction, SearchQueryLog, AuditLog
 
 class BotInteractionAdmin(admin.ModelAdmin):
     list_display = ('user', 'action_type', 'path', 'response_time_ms', 'timestamp')
@@ -70,5 +70,26 @@ class SearchQueryLogAdmin(admin.ModelAdmin):
     list_display = ('query_text', 'results_count', 'user', 'timestamp')
     list_filter = ('timestamp',)
     search_fields = ('query_text', 'user__first_name', 'user__last_name')
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('action_type', 'get_user_display', 'object_type', 'object_id', 'ip_address', 'timestamp')
+    list_filter = ('action_type', 'timestamp', 'object_type')
+    search_fields = ('user__username', 'bot_user__first_name', 'details')
+    readonly_fields = ('user', 'bot_user', 'action_type', 'object_type', 'object_id', 'details', 'ip_address', 'timestamp')
+    
+    def get_user_display(self, obj):
+        if obj.user:
+            return f"👤 {obj.user.username}"
+        elif obj.bot_user:
+            return f"🤖 {obj.bot_user.first_name or obj.bot_user.telegram_id}"
+        return "System"
+    get_user_display.short_description = 'Пользователь'
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 admin.site.register(BotInteraction, BotInteractionAdmin)

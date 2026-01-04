@@ -1,7 +1,7 @@
 Django==5.0.3
 djangorestframework==3.15.1
 psycopg2-binary==2.9.9
-python-telegram-bot==20.7
+python-telegram-bot[job-queue]==20.7
 requests
 httpx
 django-ckeditor-5

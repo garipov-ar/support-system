@@ -20,3 +20,36 @@ class SearchQueryLog(models.Model):
     def __str__(self):
         user_display = self.user.first_name if self.user and self.user.first_name else "Unknown"
         return f"'{self.query_text}' by {user_display}"
+
+class AuditLog(models.Model):
+    ACTION_TYPES = [
+        ('LOGIN', 'Вход в систему'),
+        ('LOGOUT', 'Выход из системы'),
+        ('DOCUMENT_CREATE', 'Создание документа'),
+        ('DOCUMENT_EDIT', 'Редактирование документа'),
+        ('DOCUMENT_DELETE', 'Удаление документа'),
+        ('CATEGORY_CREATE', 'Создание категории'),
+        ('CATEGORY_EDIT', 'Редактирование категории'),
+        ('CATEGORY_DELETE', 'Удаление категории'),
+        ('BOT_REQUEST', 'Запрос в боте'),
+        ('FILE_DOWNLOAD', 'Скачивание файла'),
+        ('UNAUTHORIZED_ACCESS', 'Попытка несанкционированного доступа'),
+    ]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    bot_user = models.ForeignKey('bot.BotUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    action_type = models.CharField(max_length=50, choices=ACTION_TYPES)
+    object_type = models.CharField(max_length=50, blank=True)
+    object_id = models.IntegerField(null=True, blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Запись аудита'
+        verbose_name_plural = 'Журнал аудита'
+    
+    def __str__(self):
+        user_str = self.user.username if self.user else (self.bot_user.first_name if self.bot_user else "System")
+        return f"{self.get_action_type_display()} - {user_str} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
