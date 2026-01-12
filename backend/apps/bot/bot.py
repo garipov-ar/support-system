@@ -326,6 +326,21 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     description = doc_data["description"]
     title = doc_data["title"]
     category_id = doc_data["category_id"]
+    
+    version = doc_data.get("version")
+    equipment_name = doc_data.get("equipment_name")
+
+    caption_parts = []
+    caption_parts.append(title)
+    if version:
+        caption_parts.append(f"<b>Версия:</b> {version}")
+    if equipment_name:
+        caption_parts.append(f"<b>Оборудование:</b> {equipment_name}")
+    
+    if description:
+        caption_parts.append(f"\n<i>{description}</i>")
+    
+    caption = "\n".join(caption_parts)
 
     # 1. Отправляем файл
     if file_path:
@@ -336,14 +351,14 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
                 await query.message.reply_photo(
                     photo=f,
-                    caption=description if description else title,
+                    caption=caption,
                     parse_mode="HTML"
                 )
             else:
                 await query.message.reply_document(
                     document=f,
                     filename=os.path.basename(full_path),
-                    caption=description if description else title,
+                    caption=caption,
                     parse_mode="HTML"
                 )
     else:
