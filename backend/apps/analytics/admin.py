@@ -12,6 +12,12 @@ class BotInteractionAdmin(admin.ModelAdmin):
     search_fields = ('user__first_name', 'user__last_name', 'path')
     change_list_template = "admin/analytics/interaction_changelist.html"
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -70,6 +76,12 @@ class SearchQueryLogAdmin(admin.ModelAdmin):
     list_display = ('query_text', 'results_count', 'user', 'timestamp')
     list_filter = ('timestamp',)
     search_fields = ('query_text', 'user__first_name', 'user__last_name')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):

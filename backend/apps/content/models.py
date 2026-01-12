@@ -6,6 +6,10 @@ class Equipment(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = "Оборудование"
+        verbose_name_plural = "Оборудование"
+
 
 from mptt.models import MPTTModel, TreeForeignKey
 
@@ -22,6 +26,10 @@ class Category(MPTTModel):
     class MPTTMeta:
         order_insertion_by = ["order"]
 
+    class Meta:
+        verbose_name = "Категория"
+        verbose_name_plural = "Категории"
+
     def __str__(self):
         return self.title
 
@@ -34,6 +42,13 @@ class Document(models.Model):
     equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, null=True, blank=True)
 
     description = models.TextField(verbose_name="Описание", blank=True)
+
+    class Meta:
+        verbose_name = "Документ"
+        verbose_name_plural = "Документы"
+
+    def __str__(self):
+        return self.title
 
 class DocumentVersion(models.Model):
     document = models.ForeignKey(
