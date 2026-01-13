@@ -7,7 +7,8 @@ from apps.content.models import Category, Document, DocumentVersion
 
 class NavigationView(APIView):
     def get(self, request):
-        categories = Category.objects.filter(parent=None, visible_in_bot=True).order_by("order")
+        # Показываем только папки в корне (is_folder=True)
+        categories = Category.objects.filter(parent=None, is_folder=True, visible_in_bot=True).order_by("order")
         return Response([
             {"id": c.id, "title": c.title}
             for c in categories
@@ -17,23 +18,27 @@ class NavigationView(APIView):
 class CategoryDetailView(APIView):
     def get(self, request, category_id):
         category = get_object_or_404(Category, id=category_id)
-        documents = Document.objects.filter(category=category)
+        
+        # Получаем дочерние узлы-документы (is_folder=False)
+        document_nodes = Category.objects.filter(parent=category, is_folder=False, visible_in_bot=True).order_by("order")
 
         result = []
-        for d in documents:
+        for node in document_nodes:
+            # Версии теперь связаны через content_node
             version = (
                 DocumentVersion.objects
-                .filter(document=d)
+                .filter(content_node=node)
                 .order_by("-created_at")
                 .first()
             )
             result.append({
-                "id": d.id,
-                "title": d.title,
+                "id": node.id,
+                "title": node.title,
                 "file_path": version.file.name if version else None
             })
 
-        subcategories = Category.objects.filter(parent=category, visible_in_bot=True).order_by("order")
+        # Получаем дочерние папки (is_folder=True)
+        subcategories = Category.objects.filter(parent=category, is_folder=True, visible_in_bot=True).order_by("order")
         
         return Response({
             "id": category.id,
@@ -47,25 +52,27 @@ class CategoryDetailView(APIView):
         })
 
 
+
 class DocumentDetailView(APIView):
     def get(self, request, document_id):
-        document = get_object_or_404(Document, id=document_id)
+        # Документ теперь это узел Category с is_folder=False
+        document_node = get_object_or_404(Category, id=document_id, is_folder=False)
         
         version = (
             DocumentVersion.objects
-            .filter(document=document)
+            .filter(content_node=document_node)
             .order_by("-created_at")
             .first()
         )
         
         return Response({
-            "id": document.id,
-            "title": document.title,
-            "description": document.description,
-            "category_id": document.category.id,
+            "id": document_node.id,
+            "title": document_node.title,
+            "description": document_node.description,
+            "category_id": document_node.parent.id if document_node.parent else None,
             "file_path": version.file.name if version else None,
             "version": version.version if version else None,
-            "equipment_name": document.equipment.name if document.equipment else None
+            "equipment_name": document_node.equipment.name if document_node.equipment else None
         })
 
 
@@ -77,15 +84,18 @@ class SearchView(APIView):
         if not query:
             return Response([])
 
-        documents = Document.objects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query)
-        ).select_related('category')[:10]
+        # Ищем среди узлов-документов (is_folder=False)
+        document_nodes = Category.objects.filter(
+            Q(title__icontains=query) | Q(description__icontains=query),
+            is_folder=False,
+            visible_in_bot=True
+        ).select_related('parent')[:10]
 
         return Response([
             {
-                "id": d.id,
-                "title": d.title,
-                "category_id": d.category.id
+                "id": node.id,
+                "title": node.title,
+                "category_id": node.parent.id if node.parent else None
             }
-            for d in documents
+            for node in document_nodes
         ])

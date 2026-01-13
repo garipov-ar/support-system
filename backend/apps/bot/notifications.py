@@ -12,17 +12,24 @@ async def broadcast_notification(document_version):
     Sends notification to all users subscribed to the document's category
     or any of its parent categories.
     """
-    document = document_version.document
-    category = document.category
     
-    # Find all relevant categories (including ancestors)
-    relevant_categories = category.get_ancestors(include_self=True)
-    
-    # Find all users subscribed to any of these categories
-    subscribers = BotUser.objects.filter(
-        subscribed_categories__in=relevant_categories,
-        agreed_to_policy=True
-    ).distinct()
+    @sync_to_async
+    def get_notification_data():
+        document = document_version.document
+        category = document.category
+        
+        # Find all relevant categories (including ancestors)
+        relevant_categories = list(category.get_ancestors(include_self=True))
+        
+        # Find all users subscribed to any of these categories
+        subscribers = list(BotUser.objects.filter(
+            subscribed_categories__in=relevant_categories,
+            agreed_to_policy=True
+        ).distinct())
+        
+        return document, category, subscribers
+
+    document, category, subscribers = await get_notification_data()
     
     message_text = (
         f"🔔 *Обновление файлов!*\n\n"

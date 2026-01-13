@@ -22,6 +22,11 @@ class CategoryAdmin(DraggableMPTTAdmin):
     search_fields = ("title",)
 
 
+
+    # Временно убираем инлайн документов из категорий, пока не выполнена миграция
+    # inlines = [DocumentInline]
+
+
 # 🔹 Inline ОБЯЗАТЕЛЬНО объявляется ДО DocumentAdmin
 class DocumentVersionInline(admin.TabularInline):
     model = DocumentVersion
@@ -59,7 +64,8 @@ class DocumentAdmin(admin.ModelAdmin):
     list_display = ("title", "equipment", "category")
     list_filter = ("equipment",)
     search_fields = ("title",)
-    inlines = [DocumentVersionInline]
+    # Временно отключаем инлайн до завершения миграции
+    # inlines = [DocumentVersionInline]
     
     # Enable CKEditor for description
     formfield_overrides = {
@@ -83,5 +89,5 @@ class DocumentAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentVersion)
 class DocumentVersionAdmin(admin.ModelAdmin):
-    list_display = ("document", "version", "created_at", "author")
-    list_filter = ("document",)
+    list_display = ("content_node", "version", "created_at", "author")
+    list_filter = ("content_node",)

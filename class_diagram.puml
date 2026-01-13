@@ -1,0 +1,73 @@
+@startuml diagram
+skinparam classAttributeIconSize 0
+
+package "Пользователи" {
+  class User {
+    + telegram_id: int
+    + username: str
+  }
+
+  class BotUser {
+    + telegram_id: int
+    + username: str
+    + first_name: str
+    + agreed_to_policy: bool
+    + email: str
+  }
+}
+
+package "Контент" {
+  class Category {
+    + title: str
+    + parent: Category
+    + visible_in_bot: bool
+  }
+
+  class Document {
+    + title: str
+    + description: text
+  }
+
+  class DocumentVersion {
+    + version: str
+    + file: file
+    + created_at: datetime
+  }
+
+  class Equipment {
+    + name: str
+  }
+}
+
+package "Аудит и поиск" {
+  class AuditLog {
+    + action_type: str
+    + timestamp: datetime
+    + details: json
+  }
+
+  class SearchQueryLog {
+    + query_text: str
+    + results_count: int
+    + timestamp: datetime
+  }
+  
+  class BotInteraction {
+    + action_type: str
+    + path: str
+    + timestamp: datetime
+  }
+}
+
+User "1" --> "*" Document : author?
+Category "1" --> "*" Document
+Document "1" --> "*" DocumentVersion
+Equipment "1" --> "*" Document
+
+BotUser "*" -- "*" Category : subscribers
+BotUser "1" --> "*" SearchQueryLog
+BotUser "1" --> "*" BotInteraction
+User "1" --> "*" AuditLog
+BotUser "1" --> "*" AuditLog
+
+@enduml

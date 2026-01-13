@@ -22,40 +22,56 @@ class Category(MPTTModel):
     )
     order = models.PositiveIntegerField(default=0)
     visible_in_bot = models.BooleanField(default=True)
+    
+    # Unified fields
+    is_folder = models.BooleanField(default=True, verbose_name="Это папка")
+    equipment = models.ForeignKey(Equipment, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Оборудование")
+    description = models.TextField(verbose_name="Описание", blank=True)
 
     class MPTTMeta:
         order_insertion_by = ["order"]
 
     class Meta:
-        verbose_name = "Категория"
-        verbose_name_plural = "Категории"
+        verbose_name = "Узел контента"
+        verbose_name_plural = "Дерево контента"
 
     def __str__(self):
-        return self.title
+        prefix = "📁" if self.is_folder else "📄"
+        return f"{prefix} {self.title}"
 
 
 class Document(models.Model):
-
-
+    """
+    DEPRECATED: Заменено на Category(is_folder=False)
+    """
     title = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, null=True, blank=True)
-
     description = models.TextField(verbose_name="Описание", blank=True)
 
     class Meta:
-        verbose_name = "Документ"
-        verbose_name_plural = "Документы"
+        verbose_name = "Документ (УСТАРЕЛО)"
+        verbose_name_plural = "Документы (УСТАРЕЛО)"
 
     def __str__(self):
         return self.title
 
 class DocumentVersion(models.Model):
-    document = models.ForeignKey(
-        Document,
+    # document = models.ForeignKey(
+    #     Document,
+    #     related_name="versions",
+    #     on_delete=models.CASCADE
+    # )
+    
+    # Переход на новую систему
+    content_node = models.ForeignKey(
+        Category,
         related_name="versions",
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True, # Временно для миграции
+        blank=True
     )
+    
     version = models.CharField(max_length=50)
     file = models.FileField(upload_to="documents/")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,8 +79,9 @@ class DocumentVersion(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Версия документа"
-        verbose_name_plural = "Версии документов"
+        verbose_name = "Версия файла"
+        verbose_name_plural = "Версии файлов"
 
     def __str__(self):
-        return f"{self.document.title} v{self.version}"
+        node_title = self.content_node.title if self.content_node else "Без узла"
+        return f"{node_title} v{self.version}"
