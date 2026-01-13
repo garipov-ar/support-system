@@ -76,6 +76,7 @@ class DocumentVersion(models.Model):
     file = models.FileField(upload_to="documents/")
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.CharField(max_length=255)
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -85,3 +86,15 @@ class DocumentVersion(models.Model):
     def __str__(self):
         node_title = self.content_node.title if self.content_node else "Без узла"
         return f"{node_title} v{self.version}"
+
+    @property
+    def is_image(self):
+        if not self.file:
+            return False
+        return self.extension in ['jpg', 'jpeg', 'png', 'gif', 'webp']
+
+    @property
+    def extension(self):
+        if not self.file:
+            return ""
+        return self.file.name.split('.')[-1].lower()

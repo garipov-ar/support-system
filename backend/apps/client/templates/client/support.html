@@ -1,0 +1,40 @@
+{% extends "client/base.html" %}
+
+{% block title %}Поддержка{% endblock %}
+
+{% block content %}
+<a href="{% url 'client:home' %}" class="back-link">
+    ← На главную
+</a>
+
+<div class="card">
+    <h1 style="font-size: 1.5rem; margin-top: 0; margin-bottom: 20px;">Написать в поддержку</h1>
+
+    <p style="color: var(--text-light); margin-bottom: 20px;">
+        Если у вас возникли вопросы или проблемы, опишите их ниже. Администратор свяжется с вами.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background-color: #fee2e2; color: #dc2626; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+            Пожалуйста, исправьте ошибки ниже.
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            {{ field }}
+            {% if field.errors %}
+            <div style="color: #dc2626; font-size: 0.875rem; margin-top: 5px;">
+                {{ field.errors.0 }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn">Отправить сообщение</button>
+    </form>
+</div>
+{% endblock %}

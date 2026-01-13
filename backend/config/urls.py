@@ -7,6 +7,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.content.api.urls")),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
+    path("", include("apps.client.urls")), # Client App at root
 ]
 
 # Обязательно для работы admin и файлов

@@ -54,3 +54,23 @@ class AdminNotificationSettings(models.Model):
     
     def __str__(self):
         return f"Уведомления для {self.admin_user.username}"
+
+class SupportRequest(models.Model):
+    user = models.ForeignKey(BotUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_requests')
+    django_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_requests')
+    message = models.TextField(verbose_name="Сообщение")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    is_resolved = models.BooleanField(default=False, verbose_name="Решено")
+    
+    class Meta:
+        verbose_name = 'Обращение в поддержку'
+        verbose_name_plural = 'Обращения в поддержку'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        user_display = "Unknown"
+        if self.user:
+            user_display = f"Bot: {self.user}"
+        elif self.django_user:
+            user_display = f"Web: {self.django_user.username}"
+        return f"{user_display} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

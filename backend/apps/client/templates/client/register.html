@@ -1,0 +1,45 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<div class="card" style="margin-top: 50px;">
+    <h2 style="text-align: center; margin-bottom: 20px;">Регистрация</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+            Пожалуйста, исправьте ошибки формы.
+            {% for field in form %}
+            {% for error in field.errors %}
+            <div style="font-size: 0.9em;">- {{ field.label }}: {{ error }}</div>
+            {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <div style="font-size: 0.9em;">- {{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            <label for="{{ field.id_for_label }}" style="display:block; margin-bottom:5px; color:#4b5563;">
+                {{ field.label }} {% if field.field.required %}*{% endif %}
+            </label>
+            {{ field }}
+            {% if field.help_text %}
+            <div style="color: #6b7280; font-size: 0.8rem; margin-top: 2px;">{{ field.help_text }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn">Зарегистрироваться</button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{% url 'client:login' %}" style="text-decoration: none; color: #2563eb;">
+            Уже есть аккаунт? Войти
+        </a>
+    </div>
+</div>
+{% endblock %}

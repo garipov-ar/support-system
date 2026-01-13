@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import mark_safe
 from django_ckeditor_5.widgets import CKEditor5Widget
-from .models import Equipment, Category, Document, DocumentVersion
+from .models import Equipment, Category, DocumentVersion
 
 
 @admin.register(Equipment)
@@ -13,21 +13,7 @@ class EquipmentAdmin(admin.ModelAdmin):
 from mptt.admin import DraggableMPTTAdmin
 
 
-@admin.register(Category)
-class CategoryAdmin(DraggableMPTTAdmin):
-    mptt_level_indent = 20
-    list_display = ("tree_actions", "indented_title", "visible_in_bot")
-    list_display_links = ("indented_title",)
-    list_filter = ("visible_in_bot",)
-    search_fields = ("title",)
-
-
-
-    # Временно убираем инлайн документов из категорий, пока не выполнена миграция
-    # inlines = [DocumentInline]
-
-
-# 🔹 Inline ОБЯЗАТЕЛЬНО объявляется ДО DocumentAdmin
+# 🔹 Inline ОБЯЗАТЕЛЬНО объявляется ДО DocumentAdmin (и CategoryAdmin, если используется там)
 class DocumentVersionInline(admin.TabularInline):
     model = DocumentVersion
     extra = 1
@@ -59,28 +45,24 @@ class DocumentVersionInline(admin.TabularInline):
     file_preview.short_description = "Предпросмотр / Файл"
 
 
-@admin.register(Document)
-class DocumentAdmin(admin.ModelAdmin):
-    list_display = ("title", "equipment", "category")
-    list_filter = ("equipment",)
+@admin.register(Category)
+class CategoryAdmin(DraggableMPTTAdmin):
+    mptt_level_indent = 20
+    list_display = ("tree_actions", "indented_title", "visible_in_bot")
+    list_display_links = ("indented_title",)
+    list_filter = ("visible_in_bot",)
     search_fields = ("title",)
-    # Временно отключаем инлайн до завершения миграции
-    # inlines = [DocumentVersionInline]
-    
-    # Enable CKEditor for description
-    formfield_overrides = {
-        Document.description.__class__: {'widget': CKEditor5Widget(config_name='extends')},
-    }
+
+    # Временно убираем инлайн документов из категорий, пока не выполнена миграция
+    inlines = [DocumentVersionInline]
 
     def save_formset(self, request, form, formset, change):
         """
-        Переопределяем сохранение inline-форм (версий документов),
-        чтобы автоматически проставить автора текущим пользователем.
+        Populate author for inline DocumentVersion instances.
         """
         instances = formset.save(commit=False)
         for instance in instances:
             if isinstance(instance, DocumentVersion):
-                # Если автор не указан (новая запись), ставим текущего юзера
                 if not instance.author:
                     instance.author = request.user.username or "Admin"
             instance.save()

@@ -12,7 +12,7 @@ class GroupProxyAdmin(BaseGroupAdmin):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ("username", "telegram_id", "is_staff", "is_superuser")
+    list_display = ("username", "email", "date_joined", "last_login", "is_staff")
     list_filter = ("is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("username", "first_name", "last_name", "email", "telegram_id")
     
@@ -39,7 +39,7 @@ class UserAdmin(BaseUserAdmin):
     
     # Configuration for the "Add User" page
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        (None, {"fields": ("email", "first_name", "last_name", "telegram_id")}),
+        (None, {"fields": ("email", "first_name", "last_name")}),
     )
 
     readonly_fields = ("effective_permissions_display",)

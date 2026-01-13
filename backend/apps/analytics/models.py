@@ -2,23 +2,40 @@ from django.db import models
 from django.conf import settings
 
 class BotInteraction(models.Model):
-    user = models.ForeignKey('bot.BotUser', on_delete=models.CASCADE, related_name='interactions')
-    action_type = models.CharField(max_length=50) # command, callback, text
+    user = models.ForeignKey('bot.BotUser', on_delete=models.CASCADE, related_name='interactions', null=True, blank=True)
+    django_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='interactions', null=True, blank=True)
+    action_type = models.CharField(max_length=50) # command, callback, text, web_view
     path = models.CharField(max_length=255, blank=True, null=True) # e.g. "cat:1" or "/search"
     response_time_ms = models.IntegerField(default=0)
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = 'Взаимодействие'
+        verbose_name_plural = 'Статистика'
+
     def __str__(self):
-        return f"{self.user.first_name or self.user.telegram_id} - {self.action_type} at {self.timestamp}"
+        if self.user:
+            identity = f"BotUser: {self.user.first_name or self.user.telegram_id}"
+        elif self.django_user:
+            identity = f"WebUser: {self.django_user.username}"
+        else:
+            identity = "Anonymous"
+        return f"{identity} - {self.action_type} at {self.timestamp}"
 
 class SearchQueryLog(models.Model):
     query_text = models.CharField(max_length=255)
     results_count = models.IntegerField(default=0)
-    user = models.ForeignKey('bot.BotUser', on_delete=models.SET_NULL, null=True, related_name='search_logs')
+    user = models.ForeignKey('bot.BotUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='search_logs')
+    django_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='search_logs')
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        user_display = self.user.first_name if self.user and self.user.first_name else "Unknown"
+        if self.user:
+            user_display = self.user.first_name if self.user.first_name else "BotUser"
+        elif self.django_user:
+            user_display = self.django_user.username
+        else:
+             user_display = "Unknown"
         return f"'{self.query_text}' by {user_display}"
 
 class AuditLog(models.Model):

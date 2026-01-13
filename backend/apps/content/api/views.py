@@ -72,6 +72,7 @@ class DocumentDetailView(APIView):
             "category_id": document_node.parent.id if document_node.parent else None,
             "file_path": version.file.name if version else None,
             "version": version.version if version else None,
+            "telegram_file_id": version.telegram_file_id if version else None,
             "equipment_name": document_node.equipment.name if document_node.equipment else None
         })
 

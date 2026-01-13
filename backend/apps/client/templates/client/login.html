@@ -1,0 +1,35 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<div class="card" style="margin-top: 50px;">
+    <h2 style="text-align: center; margin-bottom: 20px;">Вход</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div style="background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+            Неверное имя пользователя или пароль.
+        </div>
+        {% endif %}
+
+        <div>
+            <label for="id_username" style="display:block; margin-bottom:5px; color:#4b5563;">Имя пользователя</label>
+            {{ form.username }}
+        </div>
+
+        <div>
+            <label for="id_password" style="display:block; margin-bottom:5px; color:#4b5563;">Пароль</label>
+            {{ form.password }}
+        </div>
+
+        <button type="submit" class="btn">Войти</button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{% url 'client:register' %}" style="text-decoration: none; color: #2563eb;">
+            Нет аккаунта? Зарегистрироваться
+        </a>
+    </div>
+</div>
+{% endblock %}

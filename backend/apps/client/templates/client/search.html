@@ -1,0 +1,60 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<a href="{% url 'client:home' %}" class="back-link">
+    ← На главную
+</a>
+
+<div class="card">
+    <h1 style="font-size: 1.5rem; margin-top: 0; margin-bottom: 20px;">Поиск</h1>
+
+    <form method="get" action="{% url 'client:search' %}">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" name="q" value="{{ query }}" placeholder="Поиск по документам..."
+                style="margin-bottom: 0;">
+            <button type="submit" class="btn" style="width: auto;">Найти</button>
+        </div>
+    </form>
+</div>
+
+{% if query %}
+<h2 style="font-size: 1.2rem; margin-bottom: 20px;">Результаты поиска:</h2>
+
+{% for result in results %}
+<a href="{% url 'client:document' result.id %}" class="card">
+    <h3>📄 {{ result.title }}</h3>
+    {% if result.parent %}
+    <p style="font-size: 0.8rem; color: #9ca3af; margin-bottom: 5px;">
+        Раздел: {{ result.parent.title }}
+    </p>
+    {% endif %}
+    {% if result.description %}
+    <p>{{ result.description|truncatechars:150 }}</p>
+    {% endif %}
+</a>
+{% empty %}
+<div class="empty-state">
+    По запросу "{{ query }}" ничего не найдено.
+</div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div style="text-align: center; margin-top: 20px;">
+    {% if page_obj.has_previous %}
+    <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}" class="btn btn-secondary"
+        style="width: auto;">←</a>
+    {% endif %}
+
+    <span style="margin: 0 10px; color: #6b7280;">
+        Стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+    <a href="?q={{ query }}&page={{ page_obj.next_page_number }}" class="btn btn-secondary" style="width: auto;">→</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

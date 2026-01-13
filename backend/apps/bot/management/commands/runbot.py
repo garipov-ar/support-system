@@ -24,7 +24,10 @@ from apps.bot.bot import (
     handle_search_query,
     ASK_NAME,
     ASK_EMAIL,
-    ASK_CONSENT
+    ASK_CONSENT,
+    start_support_handler,
+    receive_support_message_handler,
+    ASK_SUPPORT_MESSAGE
 )
 
 from django.utils import autoreload
@@ -79,6 +82,16 @@ class Command(BaseCommand):
             },
             fallbacks=[CommandHandler("start", start)],
         )
+
+        # Support Conversation
+        support_conv = ConversationHandler(
+            entry_points=[CallbackQueryHandler(start_support_handler, pattern="^support_start$")],
+            states={
+                ASK_SUPPORT_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_support_message_handler)]
+            },
+            fallbacks=[CallbackQueryHandler(back_handler, pattern="^back$")]
+        )
+        app.add_handler(support_conv)
 
         app.add_handler(conv_handler)
 

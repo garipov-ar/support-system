@@ -1,27 +1,70 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
 
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Начало</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='analytics' %}">Analytics</a>
+    &rsaquo; Статистика
+</div>
+{% endblock %}
+
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div class="analytics-dashboard">
-    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 40px;">
+    <!-- Row 1: Stats Cards -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+        <!-- Storage -->
         <div
-            style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <h3 style="margin-top: 0; color: #666; font-size: 16px;">Занято места</h3>
+            <div style="font-size: 32px; font-weight: bold; color: #417690;">{{ total_size_mb }} MB</div>
+            <div style="font-size: 12px; color: #999;">({{ total_size_gb }} GB)</div>
+        </div>
+
+        <!-- User Stats -->
+        <div
+            style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <h3 style="margin-top: 0; color: #666; font-size: 16px;">Пользователи</h3>
+            <div style="font-size: 32px; font-weight: bold; color: #417690;">{{ user_stats.total }}</div>
+            <div style="font-size: 12px; color: #999;">
+                +{{ user_stats.new_7d }} за неделю / +{{ user_stats.new_30d }} за месяц
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div
+            style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <h3 style="margin-top: 0; color: #666; font-size: 16px;">Ошибки (Error Rate)</h3>
+            <div
+                style="font-size: 32px; font-weight: bold; color: {% if system_health.error_rate > 5 %}#ba2121{% else %}#417690{% endif %};">
+                {{ system_health.error_rate }}%
+            </div>
+            <div style="font-size: 12px; color: #999;">({{ system_health.error_count }} ошибок)</div>
+        </div>
+    </div>
+
+    <!-- Row 2: Charts -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+        <div
+            style="flex: 2; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <h3>Активность (запросы в день)</h3>
             <canvas id="interactionsChart"></canvas>
         </div>
         <div
-            style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            style="flex: 2; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <h3>Среднее время ответа (мс)</h3>
             <canvas id="responseTimeChart"></canvas>
         </div>
     </div>
 
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+    <!-- Row 3: Searches -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+        <!-- Top Searches -->
         <div
             style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Топ-10 поисковых запросов</h3>
+            <h3>Топ-5 поисковых запросов</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left;">
@@ -37,16 +80,49 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="2" style="padding: 10px;">Данных пока нет</td>
+                        <td colspan="2" style="padding: 10px;">Данных нет</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Failed Searches -->
         <div
             style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3>Самые активные пользователи</h3>
+            <h3 style="color: #ba2121;">Неудачные поиски (0 результатов)</h3>
             <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left;">
+                        <th style="padding: 10px;">Запрос</th>
+                        <th style="padding: 10px;">Кол-во</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in failed_searches %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;">{{ item.query_text }}</td>
+                        <td style="padding: 10px;">{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" style="padding: 10px;">Отличная работа! Пустых поисков нет.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Row 4: Users & Content -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Active Users -->
+        <div
+            style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Активность пользователей</h3>
+
+            <h4 style="margin-top: 10px; margin-bottom: 5px; color: #666;">Telegram Бот</h4>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left;">
                         <th style="padding: 10px;">Пользователь</th>
@@ -61,7 +137,58 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="2" style="padding: 10px;">Данных пока нет</td>
+                        <td colspan="2" style="padding: 10px;">Данных нет</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <h4 style="margin-top: 10px; margin-bottom: 5px; color: #666;">Веб-сайт</h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left;">
+                        <th style="padding: 10px;">Пользователь</th>
+                        <th style="padding: 10px;">Действий</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in active_web_users %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;">{{ item.name }}</td>
+                        <td style="padding: 10px;">{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" style="padding: 10px;">Данных нет</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Popular Content -->
+        <div
+            style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Популярный контент</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left;">
+                        <th style="padding: 10px;">Название</th>
+                        <th style="padding: 10px;">Просмотров</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in popular_content %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;">
+                            <span style="font-size: 11px; color: #999; display: block;">{{ item.type }}</span>
+                            {{ item.name }}
+                        </td>
+                        <td style="padding: 10px;">{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" style="padding: 10px;">Данных нет</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -71,14 +198,24 @@
 </div>
 
 <script>
+    const interactionsData = {
+        labels: JSON.parse('{{ interactions_labels|escapejs }}'),
+        data: JSON.parse('{{ interactions_data|escapejs }}')
+    };
+
+    const responseTimeData = {
+        labels: JSON.parse('{{ avg_time_labels|escapejs }}'),
+        data: JSON.parse('{{ avg_time_data|escapejs }}')
+    };
+
     const interactionsCtx = document.getElementById('interactionsChart').getContext('2d');
     new Chart(interactionsCtx, {
         type: 'line',
         data: {
-            labels: {{ interactions_labels|safe }},
+            labels: interactionsData.labels,
             datasets: [{
                 label: 'Запросы',
-                data: {{ interactions_data|safe }},
+                data: interactionsData.data,
                 borderColor: '#417690',
                 backgroundColor: 'rgba(65, 118, 144, 0.1)',
                 tension: 0.1,
@@ -96,10 +233,10 @@
     new Chart(responseTimeCtx, {
         type: 'line',
         data: {
-            labels: {{ avg_time_labels|safe }},
+            labels: responseTimeData.labels,
             datasets: [{
                 label: 'Среднее время (мс)',
-                data: {{ avg_time_data|safe }},
+                data: responseTimeData.data,
                 borderColor: '#f5dd5d',
                 backgroundColor: 'rgba(245, 221, 93, 0.1)',
                 tension: 0.1,

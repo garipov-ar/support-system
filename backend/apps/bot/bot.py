@@ -28,6 +28,7 @@ async def build_root_keyboard():
         for c in data
     ]
     keyboard.append([InlineKeyboardButton(_("🔍 Поиск"), callback_data="search_init")])
+    keyboard.append([InlineKeyboardButton(_("📨 Написать администратору"), callback_data="support_start")])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -90,6 +91,35 @@ def is_user_subscribed(telegram_id, category_id):
             pass
             
     return False, None
+
+@sync_to_async
+def save_file_id(version_str, file_id):
+    from apps.content.models import DocumentVersion
+    # Find the version object and update it
+    # We rely on version string uniqueness within context, or we should have passed ID.
+    # Ideally passing ID is better, but doc_data has version string. 
+    # Let's try to find by version and maybe doc_id if available? 
+    # Actually doc_data has "version". Let's assume we need to filter by content_node or something? 
+    # To be safe, let's just filter by the version string if it's unique enough or we need to pass doc ID.
+    # WAIT: doc_data comes from DocumentDetailView which returns "version": version.version
+    # It might NOT be unique globally. 
+    # BETTER APPROACH: Pass DocumentVersion ID in API or find by Node ID + Version?
+    # View returns "version": version.version. 
+    # Let's fix API to return version_id to be safe.
+    pass
+
+@sync_to_async
+def save_file_id_safe(document_id, file_id):
+    from apps.content.models import Category, DocumentVersion
+    try:
+        # Document ID in API is the Category node ID.
+        node = Category.objects.get(id=document_id)
+        version = DocumentVersion.objects.filter(content_node=node).order_by("-created_at").first()
+        if version:
+            version.telegram_file_id = file_id
+            version.save()
+    except Exception as e:
+        logger.error(f"Error saving file_id: {e}") 
 
 @sync_to_async
 def toggle_subscription(telegram_id, category_id):
@@ -342,27 +372,58 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     caption = "\n".join(caption_parts)
 
+    telegram_file_id = doc_data.get("telegram_file_id")
+
     # 1. Отправляем файл
-    if file_path:
+    sent_msg = None
+    if telegram_file_id:
+        try:
+            sent_msg = await query.message.reply_document(
+                document=telegram_file_id,
+                caption=caption,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send by file_id: {e}")
+            # If failed (e.g. file_id invalid), fall back to upload
+            telegram_file_id = None
+
+    if not telegram_file_id and file_path:
         full_path = os.path.join(MEDIA_ROOT, file_path)
         ext = os.path.splitext(full_path)[1].lower()
 
-        with open(full_path, "rb") as f:
-            if ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
-                await query.message.reply_photo(
-                    photo=f,
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-            else:
-                await query.message.reply_document(
-                    document=f,
-                    filename=os.path.basename(full_path),
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-    else:
-        await query.message.reply_text(_("Файл не найден."))
+        if os.path.exists(full_path):
+            with open(full_path, "rb") as f:
+                if ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
+                   sent_msg = await query.message.reply_photo(
+                        photo=f,
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                else:
+                    sent_msg = await query.message.reply_document(
+                        document=f,
+                        filename=os.path.basename(full_path),
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+            
+            # Save file_id for future use
+            if sent_msg:
+                # Get file_id from message
+                new_file_id = None
+                if sent_msg.document:
+                    new_file_id = sent_msg.document.file_id
+                elif sent_msg.photo:
+                    new_file_id = sent_msg.photo[-1].file_id
+                
+                if new_file_id:
+                     await save_file_id_safe(doc_id, new_file_id)
+
+        else:
+            await query.message.reply_text(_("Файл не найден на сервере."))
+    elif not telegram_file_id and not file_path:
+         await query.message.reply_text(_("Файл не прикреплен."))
 
     # 2. Восстанавливаем меню (чтобы оно было снизу)
     try:
@@ -544,3 +605,68 @@ async def toggle_subscription_handler(update: Update, context: ContextTypes.DEFA
     from apps.analytics.utils import log_interaction
     duration = int((time.time() - start_time) * 1000)
     await log_interaction(query.from_user.id, "callback", f"sub:toggle:{category_id}", duration=duration)
+@sync_to_async
+def save_support_request(telegram_id, message):
+    from apps.bot.models import SupportRequest, BotUser
+    user = BotUser.objects.filter(telegram_id=telegram_id).first()
+    if user:
+        SupportRequest.objects.create(user=user, message=message)
+    return user
+
+async def notify_admins(app, message, user_info):
+    from apps.bot.models import AdminNotificationSettings
+    # Get admins who want notifications (we reuse notify_on_errors or add a new flag? Let's use notify_on_errors or just all admins with ID for now)
+    # Ideally should be a separate flag but for MVP let's send to all configured admins.
+    
+    # We need to run sync query to get admins
+    admins = await sync_to_async(lambda: list(AdminNotificationSettings.objects.filter(telegram_id__isnull=False)))()
+    
+    for admin in admins:
+        try:
+            text = f"📨 <b>Новое обращение в поддержку!</b>\n\nОт: {user_info}\n\nСообщение:\n<i>{message}</i>"
+            await app.bot.send_message(chat_id=admin.telegram_id, text=text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Failed to notify admin {admin.telegram_id}: {e}")
+
+ASK_SUPPORT_MESSAGE = 10 # New state
+
+async def start_support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+        await query.edit_message_text(
+            _("Опишите вашу проблему или вопрос в одном сообщении:"),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(_("❌ Отмена"), callback_data="back")]])
+        )
+    return ASK_SUPPORT_MESSAGE
+
+async def receive_support_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    user = update.effective_user
+    
+    # Save to DB
+    db_user = await save_support_request(user.id, text)
+    
+    # Notify Admins
+    user_info = f"{user.first_name} (@{user.username})" if user.username else f"{user.first_name}"
+    await notify_admins(context.application, text, user_info)
+    
+    # Log interaction
+    from apps.analytics.utils import log_interaction
+    await log_interaction(user.id, "support_request", "text", duration=0)
+
+    # Reply to user
+    await update.message.reply_text(
+        _("✅ Ваше сообщение отправлено администратору. Мы свяжемся с вами в ближайшее время."),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(_("🔙 В главное меню"), callback_data="back")]])
+    )
+    return ConversationHandler.END
+
+# Update build_root_keyboard to include Support button (Redefine it here or previously? It was defined earlier. I need to Replace existing definition or ADD logic.
+# Since I'm appending code, I can't easily redefine `build_root_keyboard` if it's already defined above.
+# I should use `replace_file_content` targeting the specific function `build_root_keyboard` earlier in the file.
+# BUT this tool call is appending at the end (start line 607 is end?? No, 607 is end of file). 
+# Wait, I can only replace contiguous blocks.
+# I will use a separate `replace_file_content` to update `build_root_keyboard` 
+# and another to add these handlers. 
+# This specific call will just ADD the new handlers at the end.

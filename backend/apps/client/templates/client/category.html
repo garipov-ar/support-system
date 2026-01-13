@@ -1,0 +1,37 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<a href="{% if category.parent %}{% url 'client:category' category.parent.id %}{% else %}{% url 'client:home' %}{% endif %}"
+    class="back-link">
+    ← Назад
+</a>
+
+<h1 style="font-size: 1.5rem; margin-bottom: 5px;">{{ category.title }}</h1>
+{% if category.description %}
+<p style="color: #6b7280; margin-bottom: 20px;">{{ category.description }}</p>
+{% endif %}
+
+<div style="margin-bottom: 30px;">
+    {% for sub in subcategories %}
+    <a href="{% url 'client:category' sub.id %}" class="card">
+        <h3>📂 {{ sub.title }}</h3>
+    </a>
+    {% endfor %}
+</div>
+
+<div>
+    {% for doc in documents %}
+    <a href="{% url 'client:document' doc.id %}" class="card">
+        <h3>📄 {{ doc.title }}</h3>
+        {% if doc.description %}
+        <p>{{ doc.description|truncatechars:100 }}</p>
+        {% endif %}
+    </a>
+    {% empty %}
+    {% if not subcategories %}
+    <div class="empty-state">В этом разделе пусто.</div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% endblock %}

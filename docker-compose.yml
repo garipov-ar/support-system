@@ -29,6 +29,8 @@ services:
       - redis
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
     env_file:
       - .env
 
@@ -42,6 +44,8 @@ services:
       - ./backend/media:/app/media
     environment:
       PYTHONUNBUFFERED: 1
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
     env_file:
       - .env
 
@@ -54,6 +58,8 @@ services:
       - ./backend:/app
     environment:
       PYTHONUNBUFFERED: 1
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
     env_file:
       - .env
 

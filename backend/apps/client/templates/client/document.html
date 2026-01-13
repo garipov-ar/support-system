@@ -1,0 +1,66 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<a href="{% if document.parent %}{% url 'client:category' document.parent.id %}{% else %}{% url 'client:home' %}{% endif %}"
+    class="back-link">
+    ← Назад к разделу
+</a>
+
+<div class="card">
+    <h1 style="font-size: 1.5rem; margin-top:0;">{{ document.title }}</h1>
+
+    {% if document.description %}
+    <p style="margin-bottom: 20px; line-height: 1.5;">{{ document.description|linebreaksbr }}</p>
+    {% endif %}
+
+    <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem;">
+        {% if document.parent %}
+        <div style="margin-bottom: 5px;">
+            <span style="color: #6b7280;">Раздел:</span>
+            <b>{{ document.parent.title }}</b>
+        </div>
+        {% endif %}
+
+        {% if document.equipment %}
+        <div style="margin-bottom: 5px;">
+            <span style="color: #6b7280;">Оборудование:</span>
+            <b>{{ document.equipment.name }}</b>
+        </div>
+        {% endif %}
+
+        {% if version %}
+        <div style="margin-bottom: 5px;">
+            <span style="color: #6b7280;">Версия:</span>
+            <b>{{ version.version }}</b>
+        </div>
+        <div style="margin-bottom: 5px;">
+            <span style="color: #6b7280;">Обновлено:</span>
+            <b>{{ version.created_at|date:"d.m.Y" }}</b>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if version and version.file %}
+
+    {% if version.is_image %}
+    <div style="margin-bottom: 20px; text-align: center;">
+        <img src="{{ version.file.url }}" alt="{{ document.title }}"
+            style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+    </div>
+    {% endif %}
+
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ version.file.url }}" class="btn btn-secondary" target="_blank" style="text-align: center;">
+            👁 Просмотреть
+        </a>
+        <a href="{{ version.file.url }}" class="btn" download style="text-align: center;">
+            📥 Скачать
+        </a>
+    </div>
+    {% else %}
+    <div class="btn btn-secondary" style="text-align: center; cursor: default;">
+        Файл отсутствует
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

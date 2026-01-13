@@ -24,7 +24,8 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.content.apps.ContentConfig",
     "apps.bot",
-    'apps.analytics',
+    'apps.analytics.apps.AnalyticsConfig',
+    "apps.client.apps.ClientConfig",
 ]
 
 # --- MIDDLEWARE (КРИТИЧНО ДЛЯ ADMIN) ---
@@ -36,6 +37,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'apps.analytics.middleware.ThreadLocalMiddleware',
 ]
 
 # --- URLS ---
@@ -175,8 +177,8 @@ STATICFILES_FINDERS = [
 ]
 
 # --- CELERY ---
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/1')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://redis:6379/1')
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://redis:6379/1'))
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('REDIS_URL', 'redis://redis:6379/1'))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -203,3 +205,8 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# Login Configuration
+LOGIN_URL = 'client:login'
+LOGIN_REDIRECT_URL = 'client:home'
+LOGOUT_REDIRECT_URL = 'client:login'

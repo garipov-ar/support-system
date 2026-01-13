@@ -1,0 +1,25 @@
+{% extends "client/base.html" %}
+
+{% block content %}
+<h1 style="font-size: 1.5rem; margin-bottom: 20px;">База знаний</h1>
+
+{% for category in categories %}
+<a href="{% url 'client:category' category.id %}" class="card">
+    <h3>📂 {{ category.title }}</h3>
+    {% if category.description %}
+    <p>{{ category.description|truncatechars:100 }}</p>
+    {% endif %}
+</a>
+{% empty %}
+<div class="empty-state">Нет доступных разделов.</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block footer_actions %}
+<div style="text-align: center; margin-top: 30px;">
+    <a href="{% url 'client:support' %}" style="color: var(--text-light); text-decoration: none; font-size: 0.9rem;">
+        📨 Написать в поддержку
+    </a>
+</div>
+{% endblock %}
