@@ -1,6 +1,6 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import Document, Category, DocumentVersion
+from .models import Category, DocumentVersion
 from apps.bot.notifications import broadcast_notification, notify_admins_document_error
 from apps.analytics.utils import create_audit_log
 from apps.analytics.middleware import get_current_user, get_current_ip
@@ -41,28 +41,7 @@ def notify_subscribers(sender, instance, created, **kwargs):
                 details={'error': str(e), 'context': 'document_processing'}
             )
 
-@receiver(post_save, sender=Document)
-def log_document_save(sender, instance, created, **kwargs):
-    action = 'DOCUMENT_CREATE' if created else 'DOCUMENT_EDIT'
-    async_to_sync(create_audit_log)(
-        user=get_current_user(),
-        action_type=action,
-        object_type='Document',
-        object_id=instance.id,
-        details={'title': instance.title},
-        ip_address=get_current_ip()
-    )
 
-@receiver(post_delete, sender=Document)
-def log_document_delete(sender, instance, **kwargs):
-    async_to_sync(create_audit_log)(
-        user=get_current_user(),
-        action_type='DOCUMENT_DELETE',
-        object_type='Document',
-        object_id=instance.id,
-        details={'title': instance.title},
-        ip_address=get_current_ip()
-    )
 
 @receiver(post_save, sender=Category)
 def log_category_save(sender, instance, created, **kwargs):

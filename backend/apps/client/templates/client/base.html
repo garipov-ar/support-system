@@ -243,6 +243,9 @@
                 <button type="submit"
                     style="background:none; border:none; color:white; cursor:pointer; font-size:1.1rem; margin-left:10px;">🚪</button>
             </form>
+            {% if user.is_staff %}
+            <a href="/admin/" style="margin-right: 10px;" title="Админ-панель" hx-boost="false">⚙️</a>
+            {% endif %}
             {% endif %}
         </div>
     </header>

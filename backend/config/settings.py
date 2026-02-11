@@ -1,12 +1,23 @@
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
+def get_env_variable(var_name, default=None):
+    try:
+        return os.environ[var_name]
+    except KeyError:
+        if default is not None:
+            return default
+        error_msg = f"Set the {var_name} environment variable"
+        raise ImproperlyConfigured(error_msg)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-secret")
-DEBUG = os.getenv("DEBUG") == "1"
+SECRET_KEY = get_env_variable("SECRET_KEY")
+DEBUG = get_env_variable("DEBUG", "False") == "1"
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = get_env_variable("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # --- APPS ---
 INSTALLED_APPS = [
@@ -67,11 +78,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST"),
-        "PORT": os.getenv("POSTGRES_PORT"),
+        "NAME": get_env_variable("POSTGRES_DB"),
+        "USER": get_env_variable("POSTGRES_USER"),
+        "PASSWORD": get_env_variable("POSTGRES_PASSWORD"),
+        "HOST": get_env_variable("POSTGRES_HOST"),
+        "PORT": get_env_variable("POSTGRES_PORT"),
     }
 }
 
@@ -169,7 +180,7 @@ STATIC_ROOT = BASE_DIR / "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- TELEGRAM ---
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = get_env_variable("TELEGRAM_BOT_TOKEN")
 
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",

@@ -1,0 +1,3 @@
+# Conversation States
+ASK_NAME, ASK_EMAIL, ASK_CONSENT = range(3)
+ASK_SUPPORT_MESSAGE = 10

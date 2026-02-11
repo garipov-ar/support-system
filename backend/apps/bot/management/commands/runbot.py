@@ -3,14 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, PicklePersistence
 from apps.bot.persistence import RedisPersistence
-from apps.bot.bot import search_handler
-from asgiref.sync import sync_to_async
-import asyncio
-import logging
-
-logger = logging.getLogger(__name__)
-
-from apps.bot.bot import (
+from apps.bot.handlers import (
     start,
     category_handler,
     document_handler,
@@ -22,13 +15,24 @@ from apps.bot.bot import (
     toggle_subscription_handler,
     initiate_search_handler,
     handle_search_query,
+    start_support_handler,
+    receive_support_message_handler,
+)
+
+from apps.bot.constants import (
     ASK_NAME,
     ASK_EMAIL,
     ASK_CONSENT,
-    start_support_handler,
-    receive_support_message_handler,
     ASK_SUPPORT_MESSAGE
 )
+
+from apps.bot.handlers import search_handler
+
+from asgiref.sync import sync_to_async
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 from django.utils import autoreload
 

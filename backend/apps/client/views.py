@@ -6,7 +6,7 @@ from django.views import View
 from django.db.models import Q
 from django.contrib.auth import login
 from django.urls import reverse_lazy
-from apps.content.models import Category, DocumentVersion, Document
+from apps.content.models import Category, DocumentVersion
 from django.http import HttpResponse, Http404
 import os
 from django.conf import settings

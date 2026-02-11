@@ -40,21 +40,7 @@ class Category(MPTTModel):
         return f"{prefix} {self.title}"
 
 
-class Document(models.Model):
-    """
-    DEPRECATED: Заменено на Category(is_folder=False)
-    """
-    title = models.CharField(max_length=255)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    equipment = models.ForeignKey(Equipment, on_delete=models.PROTECT, null=True, blank=True)
-    description = models.TextField(verbose_name="Описание", blank=True)
 
-    class Meta:
-        verbose_name = "Документ (УСТАРЕЛО)"
-        verbose_name_plural = "Документы (УСТАРЕЛО)"
-
-    def __str__(self):
-        return self.title
 
 class DocumentVersion(models.Model):
     # document = models.ForeignKey(

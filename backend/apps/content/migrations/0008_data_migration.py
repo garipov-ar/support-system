@@ -19,8 +19,9 @@ def migrate_documents_to_nodes(apps, schema_editor):
             """, [doc.title, parent_id, 999, visible, False, equipment_id, doc.description])
     
     # Импортируем реальную модель (не историческую) для вызова rebuild()
-    from apps.content.models import Category
-    Category.objects.rebuild()
+    # from apps.content.models import Category
+    # Category.objects.rebuild()
+    pass
 
 
 
