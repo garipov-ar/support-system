@@ -52,6 +52,7 @@ jobs:
     - name: Type check with mypy
       run: |
         # Check specific apps, ignoring missing imports for some libs
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         mypy backend/apps --ignore-missing-imports
 
     - name: Run Tests
