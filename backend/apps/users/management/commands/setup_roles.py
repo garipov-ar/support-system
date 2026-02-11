@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from apps.content.models import Category, Document, DocumentVersion, Equipment
+from apps.content.models import Category, DocumentVersion, Equipment
 from apps.analytics.models import BotInteraction, SearchQueryLog, AuditLog
 from apps.bot.models import BotUser, BotStatus
 from django.contrib.auth import get_user_model
@@ -18,7 +18,7 @@ class Command(BaseCommand):
         # Permissions for Content Manager
         
         # A) Content: Add, Change, Delete, View
-        content_models = [Category, Document, DocumentVersion, Equipment]
+        content_models = [Category, DocumentVersion, Equipment]
         content_perms = []
         for model in content_models:
             ct = ContentType.objects.get_for_model(model)

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from apps.content.models import Category, Document, Equipment, DocumentVersion
+from apps.content.models import Category, Equipment, DocumentVersion
 
 class Command(BaseCommand):
     help = "Creates default groups and permissions"
@@ -16,7 +16,7 @@ class Command(BaseCommand):
             self.stdout.write("Group 'Контент-менеджеры' already exists")
 
         # Define models to grant access to
-        models_to_grant = [Category, Document, Equipment, DocumentVersion]
+        models_to_grant = [Category, Equipment, DocumentVersion]
         
         permissions_to_add = []
         for model in models_to_grant:

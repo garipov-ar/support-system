@@ -133,23 +133,11 @@ class BotInteractionAdmin(admin.ModelAdmin):
                         name = doc_node.title
                         type_label = "Документ"
                     else:
-                        # Priority 2: Old System - Legacy Document Model
-                        # Some logs might refer to the old Document table
-                        try:
-                            from apps.content.models import Document
-                            old_doc = Document.objects.filter(id=obj_id).first()
-                            if old_doc:
-                                name = old_doc.title
-                                type_label = "Документ (архив)"
-                        except Exception:
-                            pass
-                            
-                        # Priority 3: Fallback - might be a Category called as doc?
-                        if name == path:
-                             cat_fallback = Category.objects.filter(id=obj_id).first()
-                             if cat_fallback:
-                                 name = cat_fallback.title
-                                 type_label = "Категория (как документ)"
+                        # Fallback - might be a Category referenced as doc
+                        cat_fallback = Category.objects.filter(id=obj_id).first()
+                        if cat_fallback:
+                            name = cat_fallback.title
+                            type_label = "Категория (как документ)"
                 elif path.startswith('sub:toggle:'):
                      continue 
             except Exception:
