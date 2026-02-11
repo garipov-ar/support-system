@@ -50,6 +50,14 @@ jobs:
         flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Type check with mypy
+      env:
+        SECRET_KEY: "dummy-secret-key"
+        POSTGRES_DB: "dummy"
+        POSTGRES_USER: "dummy"
+        POSTGRES_PASSWORD: "dummy"
+        POSTGRES_HOST: "localhost"
+        POSTGRES_PORT: "5432"
+        TELEGRAM_BOT_TOKEN: "dummy"
       run: |
         # Run from backend directory to fix relative imports
         cd backend
