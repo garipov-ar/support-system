@@ -1,10 +1,18 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from apps.content.models import Category, DocumentVersion
+from django.core.cache import cache
 
 def get_root_categories():
     """Calculates the list of root categories visible in the bot."""
-    return Category.objects.filter(parent=None, is_folder=True, visible_in_bot=True).order_by("order")
+    key = "category_root"
+    cached = cache.get(key)
+    if cached:
+        return cached
+
+    result = list(Category.objects.filter(parent=None, is_folder=True, visible_in_bot=True).order_by("order"))
+    cache.set(key, result, timeout=60*15)
+    return result
 
 def get_category_details(category_id):
     """
@@ -14,6 +22,11 @@ def get_category_details(category_id):
     - Subcategories (folders)
     - Breadcrumbs (path)
     """
+    key = f"category_{category_id}_details"
+    cached = cache.get(key)
+    if cached:
+        return cached
+
     category = get_object_or_404(Category, id=category_id)
     
     # Documents (is_folder=False)
@@ -36,7 +49,7 @@ def get_category_details(category_id):
     # Subcategories (is_folder=True)
     subcategories = Category.objects.filter(parent=category, is_folder=True, visible_in_bot=True).order_by("order")
     
-    return {
+    result = {
         "id": category.id,
         "category": category.title,
         "path": [c.title for c in category.get_ancestors()],
@@ -46,6 +59,9 @@ def get_category_details(category_id):
         ],
         "documents": documents_data
     }
+    
+    cache.set(key, result, timeout=60*15)
+    return result
 
 def get_document_details(document_id):
     """

@@ -45,6 +45,15 @@ def notify_subscribers(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Category)
 def log_category_save(sender, instance, created, **kwargs):
+    # Invalidate Cache
+    from django.core.cache import cache
+    cache.delete("category_root")
+    # If it's a child, invalidate parent
+    if instance.parent:
+        cache.delete(f"category_{instance.parent.id}_details")
+    # Invalidate self
+    cache.delete(f"category_{instance.id}_details")
+
     action = 'CATEGORY_CREATE' if created else 'CATEGORY_EDIT'
     async_to_sync(create_audit_log)(
         user=get_current_user(),
@@ -57,6 +66,13 @@ def log_category_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Category)
 def log_category_delete(sender, instance, **kwargs):
+    # Invalidate Cache
+    from django.core.cache import cache
+    cache.delete("category_root")
+    if instance.parent:
+        cache.delete(f"category_{instance.parent.id}_details")
+    cache.delete(f"category_{instance.id}_details")
+
     async_to_sync(create_audit_log)(
         user=get_current_user(),
         action_type='CATEGORY_DELETE',

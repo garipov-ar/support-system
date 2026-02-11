@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: support_db
+          POSTGRES_USER: support_user
+          POSTGRES_PASSWORD: support_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Type check with mypy
+      run: |
+        # Check specific apps, ignoring missing imports for some libs
+        mypy backend/apps --ignore-missing-imports --install-types --non-interactive
+
+    - name: Run Tests
+      env:
+        SECRET_KEY: "test-secret-key"
+        DEBUG: "1"
+        ALLOWED_HOSTS: "localhost,127.0.0.1"
+        POSTGRES_DB: support_db
+        POSTGRES_USER: support_user
+        POSTGRES_PASSWORD: support_password
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        REDIS_URL: redis://localhost:6379/0
+      run: |
+        cd backend
+        pytest

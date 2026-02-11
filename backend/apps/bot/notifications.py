@@ -15,11 +15,14 @@ async def broadcast_notification(document_version):
     
     @sync_to_async
     def get_notification_data():
-        document = document_version.document
-        category = document.category
+        document = document_version.content_node
+        category = document.parent
         
         # Find all relevant categories (including ancestors)
-        relevant_categories = list(category.get_ancestors(include_self=True))
+        if category:
+            relevant_categories = list(category.get_ancestors(include_self=True))
+        else:
+            relevant_categories = []
         
         # Find all users subscribed to any of these categories
         subscribers = list(BotUser.objects.filter(

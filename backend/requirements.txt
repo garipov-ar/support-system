@@ -2,6 +2,7 @@ Django==5.0.3
 djangorestframework==3.15.1
 psycopg2-binary==2.9.9
 redis==5.0.1
+django-redis==5.4.0
 python-telegram-bot[job-queue]==20.7
 requests
 httpx
@@ -10,3 +11,6 @@ django-ckeditor-5
 django-mptt
 pytest-django==4.8.0
 pytest-asyncio==0.23.5
+flake8==7.0.0
+mypy==1.8.0
+django-stubs==4.2.7
