@@ -52,7 +52,7 @@ jobs:
     - name: Type check with mypy
       run: |
         # Check specific apps, ignoring missing imports for some libs
-        mypy backend/apps --ignore-missing-imports --install-types --non-interactive
+        mypy backend/apps --ignore-missing-imports
 
     - name: Run Tests
       env:
