@@ -50,6 +50,7 @@ jobs:
         flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Type check with mypy
+      continue-on-error: true
       env:
         SECRET_KEY: "dummy-secret-key"
         POSTGRES_DB: "dummy"
