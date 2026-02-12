@@ -13,8 +13,10 @@ class TestContentServices:
         # Clear cache before each test
         cache.clear()
         
-        # Mock run_async to avoid threading issues in tests
-        with patch("apps.content.signals.run_async"):
+        # Mock run_async and notification functions to avoid threading/async issues in tests
+        with patch("apps.content.signals.run_async"), \
+             patch("apps.content.signals.broadcast_notification"), \
+             patch("apps.content.signals.notify_admins_document_error"):
             # Root Categories
             self.root1 = Category.objects.create(title="Root 1", is_folder=True, visible_in_bot=True, order=1)
             self.root2 = Category.objects.create(title="Root 2", is_folder=True, visible_in_bot=True, order=2)

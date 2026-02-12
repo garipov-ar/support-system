@@ -1,0 +1,75 @@
+@startuml
+left to right direction
+
+skinparam componentStyle uml2
+skinparam packageStyle rectangle
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+}
+
+package "Support System Context" {
+
+    class "Support System" <<block>>
+
+    class "Backend Server" <<block>> {
+        + framework: Django
+    }
+
+    class "PostgreSQL DB" <<block>>
+    class "Redis Cache" <<block>>
+
+    class "Client Interfaces" <<block>>
+    class "Telegram Bot UI" <<block>>
+    class "Admin Web UI" <<block>>
+
+    class "External Systems" <<block>>
+    class "Telegram API" <<block>>
+
+    class "Administrator" <<actor>>
+    class "End User" <<actor>>
+
+    ' ======================
+    ' Composition
+    ' ======================
+
+    "Support System" *-- "Backend Server"
+    "Support System" *-- "Client Interfaces"
+    "Support System" *-- "PostgreSQL DB"
+    "Support System" *-- "Redis Cache"
+
+    "Client Interfaces" *-- "Telegram Bot UI"
+    "Client Interfaces" *-- "Admin Web UI"
+
+    ' ======================
+    ' Backend internal modules
+    ' ======================
+
+    package "Backend Components" {
+        class "Content Module" <<block>>
+        class "Bot Module" <<block>>
+        class "Analytics Module" <<block>>
+        class "Monitoring Module" <<block>>
+
+        "Backend Server" *-- "Content Module"
+        "Backend Server" *-- "Bot Module"
+        "Backend Server" *-- "Analytics Module"
+        "Backend Server" *-- "Monitoring Module"
+    }
+
+    ' ======================
+    ' Dependencies
+    ' ======================
+
+    "Backend Server" --> "PostgreSQL DB" : persistence
+    "Backend Server" --> "Redis Cache" : caching
+    "Backend Server" --> "Telegram API" : REST interaction
+
+    "Telegram Bot UI" --> "Telegram API"
+
+    "Administrator" --> "Admin Web UI"
+    "End User" --> "Telegram Bot UI"
+
+}
+
+@enduml

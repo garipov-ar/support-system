@@ -1,0 +1,107 @@
+@startuml
+
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+}
+
+' =========================
+' Core classes
+' =========================
+
+class User {
+    + id: Integer
+    + username: String
+    + email: String
+    + telegram_id: BigInteger
+}
+
+class BotUser {
+    + id: Integer
+    + telegram_id: BigInteger
+    + username: String
+    + first_name: String
+    + last_name: String
+    + email: String
+    + agreed_to_policy: Boolean
+    + created_at: DateTime
+}
+
+class Category {
+    + id: Integer
+    + title: String
+    + description: Text
+    + order: Integer
+    + visible_in_bot: Boolean
+    + is_folder: Boolean
+}
+
+class Equipment {
+    + id: Integer
+    + name: String
+}
+
+class DocumentVersion {
+    + id: Integer
+    + version: String
+    + file_path: String
+    + author: String
+    + telegram_file_id: String
+    + created_at: DateTime
+}
+
+class AuditLog {
+    + id: Integer
+    + action_type: String
+    + object_type: String
+    + object_id: Integer
+    + details: JSON
+    + ip_address: String
+    + timestamp: DateTime
+}
+
+class SearchQueryLog {
+    + id: Integer
+    + query_text: String
+    + results_count: Integer
+    + timestamp: DateTime
+}
+
+class BotInteraction {
+    + id: Integer
+    + action_type: String
+    + path: String
+    + response_time_ms: Integer
+    + timestamp: DateTime
+}
+
+' =========================
+' Relationships
+' =========================
+
+' Иерархия категорий
+Category "0..1" -- "0..*" Category : parent
+
+' Связь категории и оборудования
+Equipment "1" -- "0..*" Category
+
+' Версии документа принадлежат категории
+Category "1" *-- "0..*" DocumentVersion
+
+' Подписки пользователей бота на категории (M:N)
+BotUser "0..*" -- "0..*" Category : subscribed
+
+' Логирование действий
+User "0..1" -- "0..*" AuditLog
+BotUser "0..1" -- "0..*" AuditLog
+
+' История поиска
+User "0..1" -- "0..*" SearchQueryLog
+BotUser "0..1" -- "0..*" SearchQueryLog
+
+' Взаимодействия
+User "0..1" -- "0..*" BotInteraction
+BotUser "0..1" -- "0..*" BotInteraction
+
+@enduml
