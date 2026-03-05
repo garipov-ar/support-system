@@ -1,5 +1,7 @@
-from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.core.cache import cache
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -113,3 +115,22 @@ class DocumentVersion(models.Model):
         if not self.file:
             return ""
         return self.file.name.split('.')[-1].lower()
+
+
+@receiver(post_save, sender=Category)
+@receiver(post_delete, sender=Category)
+def clear_content_cache(sender, instance, **kwargs):
+    """Clears bot cache when category or document is updated."""
+    # 1. Clear root cache (always safe)
+    cache.delete("category_root")
+    
+    # 2. Clear this item's details cache
+    cache.delete(f"category_{instance.id}_details")
+    
+    # 3. Clear parent's details cache (to update children list)
+    if instance.parent_id:
+        cache.delete(f"category_{instance.parent_id}_details")
+    
+    # 4. Clear all ancestor caches for safety (since path/breadcrumbs might change)
+    for ancestor in instance.get_ancestors():
+        cache.delete(f"category_{ancestor.id}_details")

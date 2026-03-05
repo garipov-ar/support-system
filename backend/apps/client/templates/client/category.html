@@ -13,18 +13,7 @@
     {% if has_telegram %}
     <form action="{% url 'client:toggle_subscription' category.id %}" method="post" style="margin: 0;">
         {% csrf_token %}
-        <button type="submit" style="
-                    background-color: {% if is_subscribed %}#ef4444{% else %}#3b82f6{% endif %};
-                    color: white;
-                    border: none;
-                    padding: 8px 16px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 0.875rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
+        <button type="submit" class="{% if is_subscribed %}btn-unsubscribe{% else %}btn-subscribe{% endif %}">
             {% if is_subscribed %}
             🔕 Отписаться
             {% else %}
@@ -57,7 +46,7 @@
     <a href="{% url 'client:document' doc.id %}" class="card">
         <h3>📄 {{ doc.title }}</h3>
         {% if doc.description %}
-        <p>{{ doc.description|truncatechars:100 }}</p>
+        <p>{{ doc.description|striptags|truncatechars:100 }}</p>
         {% endif %}
     </a>
     {% empty %}

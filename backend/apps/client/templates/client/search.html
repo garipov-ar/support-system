@@ -29,7 +29,7 @@
     </p>
     {% endif %}
     {% if result.description %}
-    <p>{{ result.description|truncatechars:150 }}</p>
+    <p>{{ result.description|striptags|truncatechars:150 }}</p>
     {% endif %}
 </a>
 {% empty %}

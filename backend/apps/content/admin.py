@@ -49,7 +49,7 @@ class DocumentVersionInline(admin.TabularInline):
 @admin.register(Category)
 class CategoryAdmin(DraggableMPTTAdmin):
     mptt_level_indent = 20
-    list_display = ("tree_actions", "indented_title", "visible_in_bot", "get_view_count", "view_on_site")
+    list_display = ("tree_actions", "indented_title", "is_folder", "visible_in_bot", "get_view_count", "view_on_site")
     list_display_links = ("indented_title",)
     list_filter = ("visible_in_bot", "is_folder")
     search_fields = ("title",)
