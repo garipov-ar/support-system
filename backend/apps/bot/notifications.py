@@ -177,3 +177,21 @@ async def notify_admins_support_request(support_request):
     for settings_obj in settings_list:
         if settings_obj.telegram_id:
             send_telegram_notification_task.delay(settings_obj.telegram_id, message)
+
+async def notify_admins_new_user(user, source="Web"):
+    """Notify admins about a new user registration"""
+    settings_list = await get_admin_notification_settings()
+    
+    message = (
+        f"👤 <b>Новый пользователь!</b>\n\n"
+        f"<b>Логин:</b> <code>{user.username}</code>\n"
+        f"<b>Email:</b> {user.email}\n"
+        f"<b>Имя:</b> {user.get_full_name() or '---'}\n"
+        f"<b>Источник:</b> {source}\n\n"
+        f"<b>Время:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    
+    from apps.analytics.tasks import send_telegram_notification_task
+    for settings_obj in settings_list:
+        if settings_obj.telegram_id:
+            send_telegram_notification_task.delay(settings_obj.telegram_id, message)

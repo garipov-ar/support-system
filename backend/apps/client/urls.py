@@ -11,6 +11,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('', views.HomeView.as_view(), name='home'),
     path('category/<int:pk>/', views.CategoryDetailView.as_view(), name='category'),
+    path('category/<int:pk>/subscribe/', views.ToggleSubscriptionView.as_view(), name='toggle_subscription'),
     path('document/<int:pk>/', views.DocumentDetailView.as_view(), name='document'),
     path('search/', views.SearchView.as_view(), name='search'),
 ]

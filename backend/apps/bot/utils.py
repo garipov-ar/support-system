@@ -66,6 +66,14 @@ def update_user_email(telegram_id, email):
             last_name=bot_user.last_name or "",
             telegram_id=telegram_id
         )
+        
+        # Notify admins
+        from apps.bot.notifications import notify_admins_new_user
+        # This is already in a sync_to_async decorated function or called from one.
+        # But notify_admins_new_user is async.
+        import asyncio
+        asyncio.create_task(notify_admins_new_user(new_user, source="Telegram Bot"))
+        
         return username, password
     except User.MultipleObjectsReturned:
         logger.warning(f"Multiple web users found for email {email}. Cannot link telegram ID automatically.")

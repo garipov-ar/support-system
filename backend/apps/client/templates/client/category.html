@@ -6,7 +6,40 @@
     ← Назад
 </a>
 
-<h1 style="font-size: 1.5rem; margin-bottom: 5px;">{{ category.title }}</h1>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+    <h1 style="font-size: 1.5rem; margin: 0;">{{ category.title }}</h1>
+
+    {% if category.is_folder %}
+    {% if has_telegram %}
+    <form action="{% url 'client:toggle_subscription' category.id %}" method="post" style="margin: 0;">
+        {% csrf_token %}
+        <button type="submit" style="
+                    background-color: {% if is_subscribed %}#ef4444{% else %}#3b82f6{% endif %};
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                ">
+            {% if is_subscribed %}
+            🔕 Отписаться
+            {% else %}
+            🔔 Подписаться
+            {% endif %}
+        </button>
+    </form>
+    {% else %}
+    <div style="font-size: 0.875rem; color: #6b7280; text-align: right;">
+        <span title="Привяжите Telegram-бот, чтобы подписаться на уведомления">ℹ️ Подписка доступна в Telegram</span>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
 {% if category.description %}
 <p style="color: #6b7280; margin-bottom: 20px;">{{ category.description }}</p>
 {% endif %}

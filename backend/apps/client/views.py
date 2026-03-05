@@ -34,6 +34,12 @@ class RegisterView(CreateView):
     def form_valid(self, form):
         user = form.save()
         login(self.request, user)
+        
+        # Notify admins
+        from apps.bot.notifications import notify_admins_new_user
+        from asgiref.sync import async_to_sync
+        async_to_sync(notify_admins_new_user)(user, source="Web Registration")
+        
         return redirect(self.success_url)
 
 class HomeView(LoginRequiredMixin, TemplateView):
@@ -79,8 +85,47 @@ class CategoryDetailView(LoginRequiredMixin, DetailView):
             is_folder=False, 
             visible_in_bot=True
         ).order_by('order')
+
+        # Subscription status
+        context['has_telegram'] = False
+        context['is_subscribed'] = False
+        
+        if self.request.user.telegram_id:
+            context['has_telegram'] = True
+            from apps.bot.models import BotUser
+            bot_user = BotUser.objects.filter(telegram_id=self.request.user.telegram_id).first()
+            if bot_user:
+                context['is_subscribed'] = bot_user.subscribed_categories.filter(id=category.id).exists()
         
         return context
+
+class ToggleSubscriptionView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        category = get_object_or_404(Category, pk=pk)
+        
+        if not request.user.telegram_id:
+            from django.contrib import messages
+            messages.warning(request, "Для подписки на уведомления необходимо привязать Telegram-аккаунт.")
+            return redirect('client:category', pk=pk)
+            
+        from apps.bot.models import BotUser
+        bot_user = BotUser.objects.filter(telegram_id=request.user.telegram_id).first()
+        
+        if not bot_user:
+            from django.contrib import messages
+            messages.error(request, "Ваш Telegram-аккаунт не найден в базе данных бота. Пожалуйста, запустите бота еще раз.")
+            return redirect('client:category', pk=pk)
+            
+        if bot_user.subscribed_categories.filter(id=category.id).exists():
+            bot_user.subscribed_categories.remove(category)
+            from django.contrib import messages
+            messages.success(request, f"Вы успешно отписались от категории '{category.title}'.")
+        else:
+            bot_user.subscribed_categories.add(category)
+            from django.contrib import messages
+            messages.success(request, f"Вы успешно подписались на категорию '{category.title}'. Уведомления будут приходить в Telegram.")
+            
+        return redirect('client:category', pk=pk)
 
 class DocumentDetailView(LoginRequiredMixin, DetailView):
     model = Category
