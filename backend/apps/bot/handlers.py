@@ -257,9 +257,11 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      await save_file_id_safe(doc_id, new_file_id)
 
         else:
-            await query.message.reply_text(_("Файл не найден на сервере."))
+            await query.message.reply_text(_("Файл со спецификацией не найден на сервере, но вы можете прочитать описание ниже."))
+            sent_msg = await query.message.reply_text(text=caption, parse_mode="HTML")
     elif not telegram_file_id and not file_path:
-         await query.message.reply_text(_("Файл не прикреплен."))
+        # If no file at all, just send the description/title as text
+        sent_msg = await query.message.reply_text(text=caption, parse_mode="HTML")
 
     # 2. Восстанавливаем меню (чтобы оно было снизу)
     try:
