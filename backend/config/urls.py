@@ -16,6 +16,6 @@ if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 # Кастомизация админки
-admin.site.site_header = "Панель управления Support System"
-admin.site.site_title = "Support System Admin"
+admin.site.site_header = "Панель управления Сервис Wiki"
+admin.site.site_title = "Сервис Wiki Admin"
 admin.site.index_title = "Добро пожаловать в администрирование системы"
