@@ -60,6 +60,7 @@ class DocumentVersion(models.Model):
     
     version = models.CharField(max_length=50)
     file = models.FileField(upload_to="documents/")
+    file_size = models.PositiveBigIntegerField(default=0, help_text="Размер файла в байтах")
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.CharField(max_length=255)
     telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
@@ -68,6 +69,14 @@ class DocumentVersion(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Версия файла"
         verbose_name_plural = "Версии файлов"
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            try:
+                self.file_size = self.file.size
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
 
     def __str__(self):
         node_title = self.content_node.title if self.content_node else "Без узла"

@@ -132,3 +132,23 @@ async def notify_admins_document_error(document_title, error_details):
     for settings_obj in settings_list:
         if settings_obj.notify_on_errors and settings_obj.telegram_id:
             await send_telegram_notification(settings_obj.telegram_id, message)
+
+async def notify_admins_storage_limit(total_size_bytes):
+    """Notify admins that the storage limit (5GB) has been exceeded"""
+    settings_list = await get_admin_notification_settings()
+    
+    try:
+        gb_size = "%.2f" % (total_size_bytes / (1024 * 1024 * 1024))
+    except (TypeError, ZeroDivisionError):
+        gb_size = "5.00+"
+        
+    message = (
+        f"⚠️ <b>Превышен лимит хранилища!</b>\n\n"
+        f"Общий объем загруженных документов и файлов превысил <b>5 ГБ</b>.\n"
+        f"Текущий объем: ~{gb_size} ГБ.\n"
+        f"<b>Время:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    
+    for settings_obj in settings_list:
+        if settings_obj.notify_on_errors and settings_obj.telegram_id:
+            await send_telegram_notification(settings_obj.telegram_id, message)

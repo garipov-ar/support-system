@@ -12,6 +12,21 @@ class ClientRegistrationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "email", "first_name", "last_name")
+        
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        
+        # Look for existing Telegram Bot user by email
+        from apps.bot.models import BotUser
+        # We assume email has been inputted since required=True
+        bot_user = BotUser.objects.filter(email__iexact=user.email).first()
+        if bot_user:
+            user.telegram_id = bot_user.telegram_id
+            
+        if commit:
+            user.save()
+            
+        return user
 class SupportRequestForm(forms.ModelForm):
     class Meta:
         from apps.bot.models import SupportRequest

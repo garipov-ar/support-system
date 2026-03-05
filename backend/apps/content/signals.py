@@ -33,13 +33,45 @@ def notify_subscribers(sender, instance, created, **kwargs):
         except Exception as e:
             # Notify admins about processing error
             node_title = instance.content_node.title if instance.content_node else "Unknown"
-            run_async(notify_admins_document_error(node_title, str(e)))
             # Log the error
             async_to_sync(create_audit_log)(
                 user=get_current_user(),
                 action_type='BOT_REQUEST',
                 details={'error': str(e), 'context': 'document_processing'}
             )
+
+        # Storage Limit Check
+        try:
+            from django.core.cache import cache
+            from django.db.models import Sum
+            
+            # Use cache to avoid recalculating and spamming notifications every single time
+            # Only check once an hour or only if it hasn't alerted recently
+            alert_cooldown_key = "storage_limit_alert_sent"
+            if not cache.get(alert_cooldown_key):
+                agg = DocumentVersion.objects.aggregate(total=Sum('file_size'))
+                total_size_bytes = agg['total'] or 0
+                limit_bytes = 5 * 1024 * 1024 * 1024 # 5 GB
+                
+                if total_size_bytes > limit_bytes:
+                    from apps.bot.notifications import notify_admins_storage_limit
+                    run_async(notify_admins_storage_limit(total_size_bytes))
+                    # Prevent another notification for 24 hours
+                    cache.set(alert_cooldown_key, True, timeout=86400)
+        except Exception as cache_e:
+            import logging
+            logging.getLogger(__name__).error(f"Error checking storage limit: {cache_e}")
+
+@receiver(post_delete, sender=DocumentVersion)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """
+    Deletes file from filesystem
+    when corresponding `DocumentVersion` object is deleted.
+    """
+    if instance.file:
+        import os
+        if os.path.isfile(instance.file.path):
+            os.remove(instance.file.path)
 
 
 

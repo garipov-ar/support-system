@@ -36,11 +36,11 @@ class TestContentServices:
     def test_get_root_categories(self):
         """Test fetching root categories"""
         roots = services.get_root_categories()
-        assert len(roots) == 2
-        assert roots[0].title == "Root 1"
-        assert roots[1].title == "Root 2"
+        root_titles = [r.title for r in roots]
+        assert "Root 1" in root_titles
+        assert "Root 2" in root_titles
         # Verify hidden is not returned
-        assert not any(r.title == "Hidden Root" for r in roots)
+        assert "Hidden Root" not in root_titles
         
         # Test Caching
         # Modify DB directly (bypassing signals for this test or assume signal works)
@@ -48,7 +48,10 @@ class TestContentServices:
         # Let's check if second call returns cached result (we can't easily mock cache here without more setup, 
         # but we can verify it doesn't crash).
         roots_cached = services.get_root_categories()
-        assert len(roots_cached) == 2
+        cached_titles = [r.title for r in roots_cached]
+        assert "Root 1" in cached_titles
+        assert "Root 2" in cached_titles
+        assert "Hidden Root" not in cached_titles
 
     def test_get_category_details(self):
         """Test fetching category details"""

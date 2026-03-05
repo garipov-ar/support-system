@@ -68,19 +68,11 @@ class BotInteractionAdmin(admin.ModelAdmin):
         )
 
         # Calculate storage usage
-        total_size_bytes = 0
         from apps.content.models import DocumentVersion
-        import os
+        from django.db.models import Sum
 
-        # We need to be careful with file access
-        # Optimization: Maybe raw SQL query for efficient iteration?
-        # Or standard loop for now as project is small.
-        for doc_version in DocumentVersion.objects.all():
-             try:
-                 if doc_version.file and os.path.exists(doc_version.file.path):
-                     total_size_bytes += doc_version.file.size
-             except Exception:
-                 pass # File might be missing
+        agg = DocumentVersion.objects.aggregate(total=Sum('file_size'))
+        total_size_bytes = agg['total'] or 0
         
         total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
         total_size_gb = round(total_size_bytes / (1024 * 1024 * 1024), 4)

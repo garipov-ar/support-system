@@ -1,24 +1,30 @@
 services:
   db:
     image: postgres:14
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: support
-      POSTGRES_USER: support
-      POSTGRES_PASSWORD: support
+      POSTGRES_DB: ${POSTGRES_DB:-support}
+      POSTGRES_USER: ${POSTGRES_USER:-support}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-support}
       PYTHONUNBUFFERED: 1
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "5434:5432"
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     volumes:
       - redis_data:/data
 
   web:
+    image: ${IMAGE_NAME:-ghcr.io/garipov-ar/support-system}-backend:latest
     build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
     volumes:
       - ./backend:/app
       - ./backend/media:/app/media
@@ -35,7 +41,9 @@ services:
       - .env
 
   bot:
+    image: ${IMAGE_NAME:-ghcr.io/garipov-ar/support-system}-backend:latest
     build: ./backend
+    restart: unless-stopped
     command: python manage.py runbot
     depends_on:
       - web
@@ -50,7 +58,9 @@ services:
       - .env
 
   monitor:
+    image: ${IMAGE_NAME:-ghcr.io/garipov-ar/support-system}-backend:latest
     build: ./backend
+    restart: unless-stopped
     command: python manage.py monitor_bot
     depends_on:
       - web
@@ -64,7 +74,9 @@ services:
       - .env
 
   worker:
+    image: ${IMAGE_NAME:-ghcr.io/garipov-ar/support-system}-backend:latest
     build: ./backend
+    restart: unless-stopped
     command: celery -A config worker -l info
     depends_on:
       - db
@@ -79,7 +91,9 @@ services:
       - .env
 
   beat:
+    image: ${IMAGE_NAME:-ghcr.io/garipov-ar/support-system}-backend:latest
     build: ./backend
+    restart: unless-stopped
     command: celery -A config beat -l info
     depends_on:
       - db

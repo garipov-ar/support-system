@@ -67,16 +67,33 @@ async def receive_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_("Некорректный email. Попробуйте еще раз:"))
         return ASK_EMAIL
         
-    await update_user_email(update.effective_user.id, email)
+    password = await update_user_email(update.effective_user.id, email)
     
     # Показываем соглашение
     keyboard = [
         [InlineKeyboardButton(_("✅ Согласен на обработку данных"), callback_data="agree_policy")]
     ]
-    await update.message.reply_text(
-        _("Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных."),
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    
+    message_text = _("Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных.")
+    
+    if password:
+        message_text = (
+            f"Успешно! Для вас был автоматически создан аккаунт на сайте!\n\n"
+            f"<b>Ваш логин:</b> {email}\n"
+            f"<b>Ваш пароль:</b> <code>{password}</code>\n\n"
+            f"Сохраните эти данные для входа в веб-панель.\n\n" + message_text
+        )
+        await update.message.reply_text(
+            message_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML"
+        )
+    else:
+        await update.message.reply_text(
+            message_text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
     return ASK_CONSENT
 
 async def agreement_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,12 +105,20 @@ async def agreement_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = await build_root_keyboard()
         
-        await query.edit_message_text(
+        # Remove the inline keyboard from the password/consent message
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception as e:
+            logger.error(f"Failed to remove reply_markup on consent message: {e}")
+            
+        # Send the main menu as a new message
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
             text=_("Спасибо! Вы успешно зарегистрированы.\nВыберите раздел:"),
             reply_markup=keyboard
         )
         return ConversationHandler.END
-    return ASK_CONSENT 
+    return ASK_CONSENT
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(_("Регистрация прервана. Напишите /start чтобы начать заново."))

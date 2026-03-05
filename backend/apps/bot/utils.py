@@ -31,9 +31,45 @@ def update_user_name(telegram_id, full_name):
         last_name=last_name
     )
 
+from django.contrib.auth import get_user_model
+from django.utils.crypto import get_random_string
+
 @sync_to_async
 def update_user_email(telegram_id, email):
-    BotUser.objects.filter(telegram_id=telegram_id).update(email=email)
+    bot_user = BotUser.objects.filter(telegram_id=telegram_id).first()
+    if not bot_user:
+        return None
+        
+    bot_user.email = email
+    bot_user.save(update_fields=['email'])
+    
+    # Try to link with a Django User account
+    User = get_user_model()
+    try:
+        django_user = User.objects.get(email__iexact=email)
+        django_user.telegram_id = telegram_id
+        django_user.save(update_fields=['telegram_id'])
+        return None
+    except User.DoesNotExist:
+        # Create new web user
+        password = get_random_string(length=10)
+        
+        base_username = email.split('@')[0]
+        # Ensure username uniqueness by appending telegram_id
+        username = f"{base_username}_{telegram_id}"
+        
+        new_user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=bot_user.first_name or "",
+            last_name=bot_user.last_name or "",
+            telegram_id=telegram_id
+        )
+        return password
+    except User.MultipleObjectsReturned:
+        logger.warning(f"Multiple web users found for email {email}. Cannot link telegram ID automatically.")
+        return None
 
 @sync_to_async
 def update_user_agreement(telegram_id):
