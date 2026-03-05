@@ -1,3 +1,4 @@
+from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
