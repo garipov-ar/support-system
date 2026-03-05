@@ -41,7 +41,7 @@
 </div>
 
 {% if category.description %}
-<p style="color: #6b7280; margin-bottom: 20px;">{{ category.description }}</p>
+<div class="wiki-content">{{ category.description|safe }}</div>
 {% endif %}
 
 <div style="margin-bottom: 30px;">

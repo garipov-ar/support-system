@@ -57,7 +57,8 @@ def get_category_details(category_id):
         "subcategories": [
             {"id": s.id, "title": s.title} for s in subcategories
         ],
-        "documents": documents_data
+        "documents": documents_data,
+        "description": category.description
     }
     
     cache.set(key, result, timeout=60*15)

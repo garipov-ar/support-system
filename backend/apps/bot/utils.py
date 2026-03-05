@@ -1,4 +1,5 @@
 import logging
+import re
 from asgiref.sync import sync_to_async
 from apps.bot.models import BotUser, SupportRequest, AdminNotificationSettings
 
@@ -141,3 +142,41 @@ async def notify_admins(app, message, user_info):
             await app.bot.send_message(chat_id=admin.telegram_id, text=text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Failed to notify admin {admin.telegram_id}: {e}")
+
+def html_to_telegram(html):
+    """
+    Converts a subset of HTML to Telegram-compatible HTML.
+    Strips unsupported tags while trying to preserve structure (tables, blocks).
+    """
+    if not html:
+        return ""
+        
+    # 1. Handle tables (Telegram doesn't support them in captions)
+    # Convert <tr> to newline, <td>/<th> to space
+    html = re.sub(r'</tr>', '\n', html)
+    html = re.sub(r'</td>|</th>', ' ', html)
+    
+    # 2. Convert block tags to newlines
+    html = re.sub(r'</p>|</div>|<br\s*/?>', '\n', html)
+    
+    # 3. Strip all tags except those supported by Telegram
+    # Supported: <b>, <i>, <a>, <code>, <pre>, <u>, <s>, <strike>, <strong>, <em>
+    # We use a negative lookahead to keep specifically these tags.
+    allowed_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'a', 'code', 'pre']
+    
+    def strip_unsupported(match):
+        tag_full = match.group(0)
+        tag_name = match.group(1).lower()
+        if tag_name in allowed_tags:
+            return tag_full
+        return ""
+        
+    # Match <tag...>, </tag>, <tag/>
+    # Group 1 is the tag name
+    clean_html = re.sub(r'<(/?)([a-zA-Z0-9]+)[^>]*>', strip_unsupported, html)
+    
+    # 4. Clean up multiple newlines and spaces
+    clean_html = re.sub(r'\n\s*\n', '\n\n', clean_html)
+    clean_html = clean_html.strip()
+    
+    return clean_html

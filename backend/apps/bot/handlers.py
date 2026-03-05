@@ -10,7 +10,8 @@ from apps.bot.constants import ASK_NAME, ASK_EMAIL, ASK_CONSENT, ASK_SUPPORT_MES
 from apps.bot.utils import (
     get_bot_user, create_initial_user, update_user_name, update_user_email,
     update_user_agreement, is_user_subscribed, save_file_id_safe,
-    toggle_subscription, save_support_request, notify_admins
+    toggle_subscription, save_support_request, notify_admins,
+    html_to_telegram
 )
 from apps.bot.keyboards import build_root_keyboard, get_category_menu_content
 from apps.analytics.utils import log_interaction, log_search_query
@@ -203,7 +204,9 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption_parts.append(f"<b>Оборудование:</b> {equipment_name}")
     
     if description:
-        caption_parts.append(f"\n<i>{description}</i>")
+        clean_description = html_to_telegram(description)
+        if clean_description:
+            caption_parts.append(f"\n{clean_description}")
     
     caption = "\n".join(caption_parts)
 

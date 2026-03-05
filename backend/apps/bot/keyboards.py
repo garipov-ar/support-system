@@ -2,7 +2,7 @@ import html
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from django.utils.translation import gettext as _
 from asgiref.sync import sync_to_async
-from apps.bot.utils import is_user_subscribed
+from apps.bot.utils import is_user_subscribed, html_to_telegram
 
 async def build_root_keyboard():
     from apps.content import services
@@ -80,8 +80,14 @@ async def get_category_menu_content(data, user_id, prefix=""):
     safe_title = html.escape(str(data['category']))
     safe_breadcrumbs = html.escape(breadcrumbs)
 
-    # prefix is assumed to be HTML if it has tags, but for now we keep it simple
-    text = f"{prefix}{status_icon} {safe_breadcrumbs}<u>{safe_title}</u>"
+    # description
+    description_text = ""
+    if data.get("description"):
+        clean_desc = html_to_telegram(data["description"])
+        if clean_desc:
+            description_text = f"\n\n{clean_desc}"
+
+    text = f"{prefix}{status_icon} {safe_breadcrumbs}<u>{safe_title}</u>{description_text}"
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     return text, reply_markup

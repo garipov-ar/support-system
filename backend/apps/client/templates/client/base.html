@@ -228,6 +228,47 @@
             font-size: 1.2rem;
             margin-right: 8px;
         }
+
+        /* Wiki Content Styles */
+        .wiki-content {
+            word-wrap: break-word;
+        }
+
+        .wiki-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .wiki-content th,
+        .wiki-content td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .wiki-content th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+
+        .wiki-content tr:last-child td {
+            border-bottom: none;
+        }
+
+        .wiki-content figure.table {
+            margin: 0;
+        }
+
+        .wiki-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
     </style>
 </head>
 

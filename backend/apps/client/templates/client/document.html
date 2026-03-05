@@ -10,7 +10,7 @@
     <h1 style="font-size: 1.5rem; margin-top:0;">{{ document.title }}</h1>
 
     {% if document.description %}
-    <p style="margin-bottom: 20px; line-height: 1.5;">{{ document.description|linebreaksbr }}</p>
+    <div class="wiki-content" style="margin-bottom: 20px; line-height: 1.5;">{{ document.description|safe }}</div>
     {% endif %}
 
     <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem;">
