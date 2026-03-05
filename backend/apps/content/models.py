@@ -1,4 +1,5 @@
 from django.db import models
+from django_ckeditor_5.fields import CKEditor5Field
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -26,7 +27,7 @@ class Category(MPTTModel):
     # Unified fields
     is_folder = models.BooleanField(default=True, verbose_name="Это папка")
     equipment = models.ForeignKey(Equipment, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Оборудование")
-    description = models.TextField(verbose_name="Описание", blank=True)
+    description = CKEditor5Field(verbose_name="Описание", blank=True, config_name='extends')
 
     class MPTTMeta:
         order_insertion_by = ["order"]
@@ -38,6 +39,25 @@ class Category(MPTTModel):
     def __str__(self):
         prefix = "📁" if self.is_folder else "📄"
         return f"{prefix} {self.title}"
+
+    @property
+    def view_count(self):
+        """Total views from both web and bot"""
+        from apps.analytics.models import BotInteraction
+        path_id = f"{'cat' if self.is_folder else 'doc'}:{self.id}"
+        return BotInteraction.objects.filter(path=path_id).count()
+
+    @property
+    def web_view_count(self):
+        from apps.analytics.models import BotInteraction
+        path_id = f"{'cat' if self.is_folder else 'doc'}:{self.id}"
+        return BotInteraction.objects.filter(path=path_id, action_type='web_view').count()
+
+    @property
+    def bot_view_count(self):
+        from apps.analytics.models import BotInteraction
+        path_id = f"{'cat' if self.is_folder else 'doc'}:{self.id}"
+        return BotInteraction.objects.filter(path=path_id, action_type='bot_view').count()
 
 
 

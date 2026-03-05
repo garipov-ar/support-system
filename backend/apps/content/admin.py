@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.html import mark_safe
+from django.urls import reverse
 from django_ckeditor_5.widgets import CKEditor5Widget
 from .models import Equipment, Category, DocumentVersion
 
@@ -48,10 +49,22 @@ class DocumentVersionInline(admin.TabularInline):
 @admin.register(Category)
 class CategoryAdmin(DraggableMPTTAdmin):
     mptt_level_indent = 20
-    list_display = ("tree_actions", "indented_title", "visible_in_bot")
+    list_display = ("tree_actions", "indented_title", "visible_in_bot", "get_view_count", "view_on_site")
     list_display_links = ("indented_title",)
-    list_filter = ("visible_in_bot",)
+    list_filter = ("visible_in_bot", "is_folder")
     search_fields = ("title",)
+
+    def get_view_count(self, obj):
+        return f"👁️ {obj.view_count}"
+    get_view_count.short_description = "Просмотры"
+
+    def view_on_site(self, obj):
+        if obj.is_folder:
+            url = reverse('client:category', args=[obj.pk])
+        else:
+            url = reverse('client:document', args=[obj.pk])
+        return mark_safe(f'<a href="{url}" target="_blank" class="button">🔗 На сайт</a>')
+    view_on_site.short_description = "Просмотр"
 
     # Временно убираем инлайн документов из категорий, пока не выполнена миграция
     inlines = [DocumentVersionInline]
