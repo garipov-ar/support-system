@@ -1,5 +1,6 @@
 import logging
 import re
+import html as html_lib
 from asgiref.sync import sync_to_async
 from apps.bot.models import BotUser, SupportRequest, AdminNotificationSettings
 
@@ -143,39 +144,58 @@ async def notify_admins(app, message, user_info):
         except Exception as e:
             logger.error(f"Failed to notify admin {admin.telegram_id}: {e}")
 
-def html_to_telegram(html):
+def html_to_telegram(html_content):
     """
     Converts a subset of HTML to Telegram-compatible HTML.
     Strips unsupported tags while trying to preserve structure (tables, blocks).
     """
-    if not html:
+    if not html_content:
         return ""
         
+    # 0. Handle &nbsp; and common entities that TG HATES in HTML mode
+    # TG supports &lt; &gt; &amp; but NOT &nbsp;
+    html_content = html_content.replace("&nbsp;", " ")
+    
     # 1. Handle tables (Telegram doesn't support them in captions)
-    # Convert <tr> to newline, <td>/<th> to space
-    html = re.sub(r'</tr>', '\n', html)
-    html = re.sub(r'</td>|</th>', ' ', html)
+    # Add vertical bars for cells and newlines for rows
+    html_content = re.sub(r'</td>|</th>', ' | ', html_content)
+    # Row separator
+    html_content = re.sub(r'</tr>', '\n' + '—' * 15 + '\n', html_content)
     
     # 2. Convert block tags to newlines
-    html = re.sub(r'</p>|</div>|<br\s*/?>', '\n', html)
+    html_content = re.sub(r'</p>|</div>|<br\s*/?>', '\n', html_content)
     
     # 3. Strip all tags except those supported by Telegram
-    # Supported: <b>, <i>, <a>, <code>, <pre>, <u>, <s>, <strike>, <strong>, <em>
-    # We use a negative lookahead to keep specifically these tags.
     allowed_tags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'a', 'code', 'pre']
     
     def strip_unsupported(match):
         tag_full = match.group(0)
-        tag_name = match.group(1).lower()
+        tag_name = match.group(2).lower() # Group 2 is the tag name in re below: (/?)([a-zA-Z0-9]+)
         if tag_name in allowed_tags:
             return tag_full
         return ""
         
     # Match <tag...>, </tag>, <tag/>
-    # Group 1 is the tag name
-    clean_html = re.sub(r'<(/?)([a-zA-Z0-9]+)[^>]*>', strip_unsupported, html)
+    clean_html = re.sub(r'<(/?)([a-zA-Z0-9]+)[^>]*>', strip_unsupported, html_content)
     
-    # 4. Clean up multiple newlines and spaces
+    # 4. Handle other entities (but carefully, avoiding breaking < > & for TG)
+    # We want to unescape things like &quot; if they aren't < > &
+    # Actually, html_lib.unescape is mostly safe if we've already handled < > in tags
+    # But for safety, let's just specifically unescape everything and THEN escape < > & back 
+    # except for the tags we kept. This is hard.
+    # Let's just do a specific unescape for common ones CKEditor might produce.
+    entities_to_fix = {
+        "&laquo;": "«",
+        "&raquo;": "»",
+        "&ndash;": "–",
+        "&mdash;": "—",
+        "&copy;": "©",
+        "&reg;": "®",
+    }
+    for ent, val in entities_to_fix.items():
+        clean_html = clean_html.replace(ent, val)
+
+    # 5. Clean up multiple newlines and spaces
     clean_html = re.sub(r'\n\s*\n', '\n\n', clean_html)
     clean_html = clean_html.strip()
     
