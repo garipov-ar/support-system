@@ -66,7 +66,7 @@ def update_user_email(telegram_id, email):
             last_name=bot_user.last_name or "",
             telegram_id=telegram_id
         )
-        return password
+        return username, password
     except User.MultipleObjectsReturned:
         logger.warning(f"Multiple web users found for email {email}. Cannot link telegram ID automatically.")
         return None

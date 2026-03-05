@@ -167,6 +167,14 @@ class SupportView(LoginRequiredMixin, FormView):
         support_request.django_user = self.request.user
         support_request.save()
         
+        # Notify admins
+        from apps.bot.notifications import notify_admins_support_request
+        # We can't await here easily without making the whole method sync_to_async or similar,
+        # but notify_admins_support_request uses Celery task internally for sending.
+        # However, it is an 'async def'. Let's use async_to_sync.
+        from asgiref.sync import async_to_sync
+        async_to_sync(notify_admins_support_request)(support_request)
+        
         from apps.analytics.utils import log_interaction
         from asgiref.sync import async_to_sync
         async_to_sync(log_interaction)(

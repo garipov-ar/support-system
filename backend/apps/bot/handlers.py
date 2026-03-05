@@ -67,7 +67,13 @@ async def receive_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_("Некорректный email. Попробуйте еще раз:"))
         return ASK_EMAIL
         
-    password = await update_user_email(update.effective_user.id, email)
+    result = await update_user_email(update.effective_user.id, email)
+    
+    # result might be (username, password) or None
+    username = None
+    password = None
+    if isinstance(result, tuple):
+        username, password = result
     
     # Показываем соглашение
     keyboard = [
@@ -76,10 +82,10 @@ async def receive_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     message_text = _("Остался последний шаг. Для использования бота необходимо дать согласие на обработку персональных данных.")
     
-    if password:
+    if username and password:
         message_text = (
             f"Успешно! Для вас был автоматически создан аккаунт на сайте!\n\n"
-            f"<b>Ваш логин:</b> {email}\n"
+            f"<b>Ваш логин:</b> <code>{username}</code>\n"
             f"<b>Ваш пароль:</b> <code>{password}</code>\n\n"
             f"Сохраните эти данные для входа в веб-панель.\n\n" + message_text
         )

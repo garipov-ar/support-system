@@ -152,3 +152,28 @@ async def notify_admins_storage_limit(total_size_bytes):
     for settings_obj in settings_list:
         if settings_obj.notify_on_errors and settings_obj.telegram_id:
             await send_telegram_notification(settings_obj.telegram_id, message)
+
+async def notify_admins_support_request(support_request):
+    """Notify admins about a new support request from web or bot"""
+    settings_list = await get_admin_notification_settings()
+    
+    django_user = getattr(support_request, 'django_user', None)
+    bot_user = getattr(support_request, 'user', None)
+    
+    user_info = "Неизвестный пользователь"
+    if django_user:
+        user_info = f"{django_user.get_full_name() or django_user.username} (Web)"
+    elif bot_user:
+        user_info = f"{bot_user.first_name} {bot_user.last_name or ''} (@{bot_user.username or '??'}) (Bot)"
+        
+    message = (
+        f"📩 <b>Новое обращение в поддержку!</b>\n\n"
+        f"<b>От:</b> {user_info}\n"
+        f"<b>Сообщение:</b>\n<i>{support_request.message}</i>\n\n"
+        f"<b>Время:</b> {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    
+    from apps.analytics.tasks import send_telegram_notification_task
+    for settings_obj in settings_list:
+        if settings_obj.telegram_id:
+            send_telegram_notification_task.delay(settings_obj.telegram_id, message)
